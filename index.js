@@ -29,7 +29,7 @@ const PREFIX = "n.";
 const DATA_FILE = path.join(__dirname, "data.json");
 
 if (!process.env.DISCORD_TOKEN) {
-  console.error("❌ Falta DISCORD_TOKEN en las variables de entorno.");
+  console.error("❌ ERROR: Falta DISCORD_TOKEN en las variables de entorno.");
   process.exit(1);
 }
 
@@ -45,13 +45,28 @@ let data = {
 if (fs.existsSync(DATA_FILE)) {
   try {
     data = JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
-  } catch {
+
+    if (!data.guilds) data.guilds = {};
+    if (!data.users) data.users = {};
+  } catch (error) {
     console.log("⚠️ No se pudo leer data.json. Creando datos nuevos.");
+
+    data = {
+      guilds: {},
+      users: {}
+    };
   }
 }
 
 function saveData() {
-  fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+  try {
+    fs.writeFileSync(
+      DATA_FILE,
+      JSON.stringify(data, null, 2)
+    );
+  } catch (error) {
+    console.error("❌ Error guardando datos:", error.message);
+  }
 }
 
 function getGuildData(guildId) {
@@ -62,6 +77,10 @@ function getGuildData(guildId) {
       autoRole: null,
       warnings: {}
     };
+  }
+
+  if (!data.guilds[guildId].warnings) {
+    data.guilds[guildId].warnings = {};
   }
 
   return data.guilds[guildId];
@@ -96,7 +115,7 @@ const client = new Client({
 });
 
 // ============================================================
-// 🌌 COLORES / EMBEDS
+// 🌌 COLORES
 // ============================================================
 
 const COLORS = {
@@ -403,12 +422,16 @@ client.on(Events.GuildMemberAdd, async member => {
         COLORS.purple
       );
 
-      channel.send({ embeds: [welcome] }).catch(() => {});
+      channel.send({
+        embeds: [welcome]
+      }).catch(() => {});
     }
   }
 
   if (guildData.autoRole) {
-    const role = member.guild.roles.cache.get(guildData.autoRole);
+    const role = member.guild.roles.cache.get(
+      guildData.autoRole
+    );
 
     if (role) {
       member.roles.add(role).catch(() => {});
@@ -423,12 +446,21 @@ client.on(Events.GuildMemberAdd, async member => {
 const cooldowns = new Map();
 
 client.on(Events.MessageCreate, async message => {
+
   if (message.author.bot || !message.guild) return;
 
   const key = `${message.guild.id}-${message.author.id}`;
   const now = Date.now();
 
-  if (!cooldowns.has(key) || now - cooldowns.get(key) > 60000) {
+  // ==========================================================
+  // ⭐ EXPERIENCIA
+  // ==========================================================
+
+  if (
+    !cooldowns.has(key) ||
+    now - cooldowns.get(key) > 60000
+  ) {
+
     cooldowns.set(key, now);
 
     const user = getUserData(message.author.id);
@@ -438,6 +470,7 @@ client.on(Events.MessageCreate, async message => {
     const needed = user.level * 100;
 
     if (user.xp >= needed) {
+
       user.xp -= needed;
       user.level++;
 
@@ -455,29 +488,41 @@ client.on(Events.MessageCreate, async message => {
     saveData();
   }
 
-  if (!message.content.toLowerCase().startsWith(PREFIX)) return;
+  // ==========================================================
+  // PREFIX
+  // ==========================================================
 
-  const args = message.content.slice(PREFIX.length).trim().split(/\s+/);
+  if (!message.content.toLowerCase().startsWith(PREFIX)) {
+    return;
+  }
+
+  const args = message.content
+    .slice(PREFIX.length)
+    .trim()
+    .split(/\s+/);
+
   const command = args.shift()?.toLowerCase();
 
   if (!command) return;
 
-  // ========================================================
+  // ==========================================================
   // 🌌 HELP
-  // ========================================================
+  // ==========================================================
 
   if (command === "help" || command === "ayuda") {
+
     return message.reply({
       embeds: [mainHelpEmbed()],
       components: [createMainMenu()]
     });
   }
 
-  // ========================================================
+  // ==========================================================
   // 📡 PING
-  // ========================================================
+  // ==========================================================
 
   if (command === "ping") {
+
     return message.reply({
       embeds: [
         embed(
@@ -489,11 +534,12 @@ client.on(Events.MessageCreate, async message => {
     });
   }
 
-  // ========================================================
+  // ==========================================================
   // 🤖 BOTINFO
-  // ========================================================
+  // ==========================================================
 
   if (command === "botinfo") {
+
     return message.reply({
       embeds: [
         embed(
@@ -506,7 +552,7 @@ client.on(Events.MessageCreate, async message => {
             `📡 Ping: **${client.ws.ping}ms**`,
             `💫 Prefijo: **${PREFIX}**`,
             "",
-            "✨ Explora `n.help` para ver todos los comandos."
+            "✨ Usa `n.help` para ver todos los comandos."
           ].join("\n"),
           COLORS.purple
         )
@@ -514,11 +560,12 @@ client.on(Events.MessageCreate, async message => {
     });
   }
 
-  // ========================================================
+  // ==========================================================
   // 🏠 SERVERINFO
-  // ========================================================
+  // ==========================================================
 
   if (command === "serverinfo") {
+
     const guild = message.guild;
 
     return message.reply({
@@ -540,16 +587,18 @@ client.on(Events.MessageCreate, async message => {
     });
   }
 
-  // ========================================================
+  // ==========================================================
   // 👤 USERINFO
-  // ========================================================
+  // ==========================================================
 
   if (command === "userinfo") {
+
     const user =
       message.mentions.users.first() ||
       message.author;
 
-    const member = message.guild.members.cache.get(user.id);
+    const member =
+      message.guild.members.cache.get(user.id);
 
     return message.reply({
       embeds: [
@@ -558,20 +607,29 @@ client.on(Events.MessageCreate, async message => {
           [
             `🆔 ID: \`${user.id}\``,
             `📅 Cuenta: <t:${Math.floor(user.createdTimestamp / 1000)}:D>`,
-            `👑 Servidor: ${member?.joinedTimestamp ? `<t:${Math.floor(member.joinedTimestamp / 1000)}:D>` : "N/A"}`,
+            `📥 Entrada al servidor: ${
+              member?.joinedTimestamp
+                ? `<t:${Math.floor(member.joinedTimestamp / 1000)}:D>`
+                : "N/A"
+            }`,
             `🤖 Bot: **${user.bot ? "Sí" : "No"}**`
           ].join("\n"),
           COLORS.blue
-        ).setThumbnail(user.displayAvatarURL({ size: 256 }))
+        ).setThumbnail(
+          user.displayAvatarURL({
+            size: 256
+          })
+        )
       ]
     });
   }
 
-  // ========================================================
+  // ==========================================================
   // 🖼️ AVATAR
-  // ========================================================
+  // ==========================================================
 
   if (command === "avatar") {
+
     const user =
       message.mentions.users.first() ||
       message.author;
@@ -580,18 +638,26 @@ client.on(Events.MessageCreate, async message => {
       embeds: [
         embed(
           `🖼️ Avatar de ${user.username}`,
-          `[Abrir avatar en tamaño completo](${user.displayAvatarURL({ size: 1024, extension: "png" })})`,
+          `[Abrir avatar en tamaño completo](${user.displayAvatarURL({
+            size: 1024,
+            extension: "png"
+          })})`,
           COLORS.purple
-        ).setImage(user.displayAvatarURL({ size: 1024 }))
+        ).setImage(
+          user.displayAvatarURL({
+            size: 1024
+          })
+        )
       ]
     });
   }
 
-  // ========================================================
+  // ==========================================================
   // 📊 STATS
-  // ========================================================
+  // ==========================================================
 
   if (command === "stats") {
+
     return message.reply({
       embeds: [
         embed(
@@ -608,11 +674,12 @@ client.on(Events.MessageCreate, async message => {
     });
   }
 
-  // ========================================================
+  // ==========================================================
   // 💰 BALANCE
-  // ========================================================
+  // ==========================================================
 
   if (command === "balance" || command === "bal") {
+
     const user = getUserData(message.author.id);
 
     return message.reply({
@@ -626,17 +693,22 @@ client.on(Events.MessageCreate, async message => {
     });
   }
 
-  // ========================================================
+  // ==========================================================
   // 🎁 DAILY
-  // ========================================================
+  // ==========================================================
 
   if (command === "daily") {
+
     const user = getUserData(message.author.id);
     const now = Date.now();
 
     if (now - user.daily < 86400000) {
-      const remaining = 86400000 - (now - user.daily);
-      const hours = Math.ceil(remaining / 3600000);
+
+      const remaining =
+        86400000 - (now - user.daily);
+
+      const hours =
+        Math.ceil(remaining / 3600000);
 
       return message.reply({
         embeds: [
@@ -665,15 +737,19 @@ client.on(Events.MessageCreate, async message => {
     });
   }
 
-  // ========================================================
+  // ==========================================================
   // 💼 WORK
-  // ========================================================
+  // ==========================================================
 
   if (command === "work") {
+
     const user = getUserData(message.author.id);
-    const amount = Math.floor(Math.random() * 301) + 200;
+
+    const amount =
+      Math.floor(Math.random() * 301) + 200;
 
     user.balance += amount;
+
     saveData();
 
     return message.reply({
@@ -687,12 +763,16 @@ client.on(Events.MessageCreate, async message => {
     });
   }
 
-  // ========================================================
-  // 🪙 COINFLIP
-  // ========================================================
+  // ==========================================================
+  // 🪙 COIN
+  // ==========================================================
 
   if (command === "coinflip" || command === "coin") {
-    const result = Math.random() < 0.5 ? "🪙 Cara" : "🪙 Cruz";
+
+    const result =
+      Math.random() < 0.5
+        ? "🪙 Cara"
+        : "🪙 Cruz";
 
     return message.reply({
       embeds: [
@@ -705,12 +785,14 @@ client.on(Events.MessageCreate, async message => {
     });
   }
 
-  // ========================================================
+  // ==========================================================
   // 🎲 DADO
-  // ========================================================
+  // ==========================================================
 
   if (command === "dice" || command === "dado") {
-    const result = Math.floor(Math.random() * 6) + 1;
+
+    const result =
+      Math.floor(Math.random() * 6) + 1;
 
     return message.reply({
       embeds: [
@@ -723,11 +805,12 @@ client.on(Events.MessageCreate, async message => {
     });
   }
 
-  // ========================================================
+  // ==========================================================
   // 🎱 8BALL
-  // ========================================================
+  // ==========================================================
 
   if (command === "8ball") {
+
     const answers = [
       "✨ Sí.",
       "🌌 Definitivamente.",
@@ -752,11 +835,12 @@ client.on(Events.MessageCreate, async message => {
     });
   }
 
-  // ========================================================
+  // ==========================================================
   // 🎯 CHOOSE
-  // ========================================================
+  // ==========================================================
 
   if (command === "choose") {
+
     if (args.length < 2) {
       return message.reply(
         "❌ Usa: `n.choose opción1 opción2 opción3`"
@@ -777,12 +861,14 @@ client.on(Events.MessageCreate, async message => {
     });
   }
 
-  // ========================================================
+  // ==========================================================
   // ⭐ RANK
-  // ========================================================
+  // ==========================================================
 
   if (command === "rank" || command === "profile") {
-    const user = getUserData(message.author.id);
+
+    const user =
+      getUserData(message.author.id);
 
     return message.reply({
       embeds: [
@@ -795,17 +881,20 @@ client.on(Events.MessageCreate, async message => {
           ].join("\n"),
           COLORS.yellow
         ).setThumbnail(
-          message.author.displayAvatarURL({ size: 256 })
+          message.author.displayAvatarURL({
+            size: 256
+          })
         )
       ]
     });
   }
 
-  // ========================================================
+  // ==========================================================
   // 🏆 LEADERBOARD
-  // ========================================================
+  // ==========================================================
 
   if (command === "leaderboard" || command === "top") {
+
     const top = Object.entries(data.users)
       .sort((a, b) => {
         return (
@@ -818,12 +907,17 @@ client.on(Events.MessageCreate, async message => {
     let text = "";
 
     for (let i = 0; i < top.length; i++) {
+
       const [userId, user] = top[i];
 
-      text += `**${i + 1}.** <@${userId}> — Nivel ${user.level} (${user.xp} XP)\n`;
+      text +=
+        `**${i + 1}.** <@${userId}> — Nivel ${user.level} (${user.xp} XP)\n`;
     }
 
-    if (!text) text = "Todavía no hay usuarios en la clasificación.";
+    if (!text) {
+      text =
+        "Todavía no hay usuarios en la clasificación.";
+    }
 
     return message.reply({
       embeds: [
@@ -836,26 +930,39 @@ client.on(Events.MessageCreate, async message => {
     });
   }
 
-  // ========================================================
+  // ==========================================================
   // 🛡️ KICK
-  // ========================================================
+  // ==========================================================
 
   if (command === "kick") {
-    if (!message.member.permissions.has(PermissionsBitField.Flags.KickMembers)) {
-      return message.reply("❌ No tienes permiso para expulsar miembros.");
+
+    if (
+      !message.member.permissions.has(
+        PermissionsBitField.Flags.KickMembers
+      )
+    ) {
+      return message.reply(
+        "❌ No tienes permiso para expulsar miembros."
+      );
     }
 
-    const member = message.mentions.members.first();
+    const member =
+      message.mentions.members.first();
 
     if (!member) {
-      return message.reply("❌ Menciona al usuario que quieres expulsar.");
+      return message.reply(
+        "❌ Menciona al usuario que quieres expulsar."
+      );
     }
 
     if (!member.kickable) {
-      return message.reply("❌ No puedo expulsar a ese usuario.");
+      return message.reply(
+        "❌ No puedo expulsar a ese usuario."
+      );
     }
 
-    const reason = args.slice(1).join(" ") || "Sin razón";
+    const reason =
+      args.slice(1).join(" ") || "Sin razón";
 
     await member.kick(reason);
 
@@ -870,28 +977,43 @@ client.on(Events.MessageCreate, async message => {
     });
   }
 
-  // ========================================================
+  // ==========================================================
   // 🔨 BAN
-  // ========================================================
+  // ==========================================================
 
   if (command === "ban") {
-    if (!message.member.permissions.has(PermissionsBitField.Flags.BanMembers)) {
-      return message.reply("❌ No tienes permiso para banear miembros.");
+
+    if (
+      !message.member.permissions.has(
+        PermissionsBitField.Flags.BanMembers
+      )
+    ) {
+      return message.reply(
+        "❌ No tienes permiso para banear miembros."
+      );
     }
 
-    const member = message.mentions.members.first();
+    const member =
+      message.mentions.members.first();
 
     if (!member) {
-      return message.reply("❌ Menciona al usuario que quieres banear.");
+      return message.reply(
+        "❌ Menciona al usuario que quieres banear."
+      );
     }
 
     if (!member.bannable) {
-      return message.reply("❌ No puedo banear a ese usuario.");
+      return message.reply(
+        "❌ No puedo banear a ese usuario."
+      );
     }
 
-    const reason = args.slice(1).join(" ") || "Sin razón";
+    const reason =
+      args.slice(1).join(" ") || "Sin razón";
 
-    await member.ban({ reason });
+    await member.ban({
+      reason
+    });
 
     return message.reply({
       embeds: [
@@ -904,32 +1026,48 @@ client.on(Events.MessageCreate, async message => {
     });
   }
 
-  // ========================================================
+  // ==========================================================
   // ⏱️ TIMEOUT
-  // ========================================================
+  // ==========================================================
 
   if (command === "timeout") {
-    if (!message.member.permissions.has(PermissionsBitField.Flags.ModerateMembers)) {
-      return message.reply("❌ No tienes permiso para usar timeout.");
+
+    if (
+      !message.member.permissions.has(
+        PermissionsBitField.Flags.ModerateMembers
+      )
+    ) {
+      return message.reply(
+        "❌ No tienes permiso para usar timeout."
+      );
     }
 
-    const member = message.mentions.members.first();
+    const member =
+      message.mentions.members.first();
 
     if (!member) {
-      return message.reply("❌ Menciona al usuario.");
-
+      return message.reply(
+        "❌ Menciona al usuario."
+      );
     }
 
-    const minutes = parseInt(args[1]);
+    const minutes =
+      parseInt(args[1]);
 
-    if (!minutes || minutes < 1 || minutes > 40320) {
+    if (
+      !minutes ||
+      minutes < 1 ||
+      minutes > 40320
+    ) {
       return message.reply(
         "❌ Usa los minutos. Ejemplo: `n.timeout @usuario 10`"
       );
     }
 
     if (!member.moderatable) {
-      return message.reply("❌ No puedo aplicar timeout a ese usuario.");
+      return message.reply(
+        "❌ No puedo aplicar timeout a ese usuario."
+      );
     }
 
     await member.timeout(
@@ -948,59 +1086,91 @@ client.on(Events.MessageCreate, async message => {
     });
   }
 
-  // ========================================================
+  // ==========================================================
   // 🧹 CLEAR
-  // ========================================================
+  // ==========================================================
 
   if (command === "clear") {
-    if (!message.member.permissions.has(PermissionsBitField.Flags.ManageMessages)) {
-      return message.reply("❌ No tienes permiso para borrar mensajes.");
+
+    if (
+      !message.member.permissions.has(
+        PermissionsBitField.Flags.ManageMessages
+      )
+    ) {
+      return message.reply(
+        "❌ No tienes permiso para borrar mensajes."
+      );
     }
 
-    const amount = parseInt(args[0]);
+    const amount =
+      parseInt(args[0]);
 
-    if (!amount || amount < 1 || amount > 100) {
-      return message.reply("❌ Usa una cantidad entre 1 y 100.");
+    if (
+      !amount ||
+      amount < 1 ||
+      amount > 100
+    ) {
+      return message.reply(
+        "❌ Usa una cantidad entre 1 y 100."
+      );
     }
 
-    const deleted = await message.channel.bulkDelete(
-      amount,
-      true
-    );
+    const deleted =
+      await message.channel.bulkDelete(
+        amount,
+        true
+      );
 
-    const msg = await message.channel.send({
-      embeds: [
-        embed(
-          "🧹 MENSAJES ELIMINADOS",
-          `Se eliminaron **${deleted.size} mensajes**.`,
-          COLORS.green
-        )
-      ]
-    });
+    const msg =
+      await message.channel.send({
+        embeds: [
+          embed(
+            "🧹 MENSAJES ELIMINADOS",
+            `Se eliminaron **${deleted.size} mensajes**.`,
+            COLORS.green
+          )
+        ]
+      });
 
-    setTimeout(() => msg.delete().catch(() => {}), 4000);
+    setTimeout(() => {
+      msg.delete().catch(() => {});
+    }, 4000);
 
     return;
   }
 
-  // ========================================================
+  // ==========================================================
   // 🐌 SLOWMODE
-  // ========================================================
+  // ==========================================================
 
   if (command === "slowmode") {
-    if (!message.member.permissions.has(PermissionsBitField.Flags.ManageChannels)) {
-      return message.reply("❌ No tienes permiso.");
+
+    if (
+      !message.member.permissions.has(
+        PermissionsBitField.Flags.ManageChannels
+      )
+    ) {
+      return message.reply(
+        "❌ No tienes permiso."
+      );
     }
 
-    const seconds = parseInt(args[0]);
+    const seconds =
+      parseInt(args[0]);
 
-    if (isNaN(seconds) || seconds < 0 || seconds > 21600) {
+    if (
+      isNaN(seconds) ||
+      seconds < 0 ||
+      seconds > 21600
+    ) {
       return message.reply(
         "❌ Usa un valor entre 0 y 21600 segundos."
       );
     }
 
-    await message.channel.setRateLimitPerUser(seconds);
+    await message.channel.setRateLimitPerUser(
+      seconds
+    );
 
     return message.reply({
       embeds: [
@@ -1013,13 +1183,20 @@ client.on(Events.MessageCreate, async message => {
     });
   }
 
-  // ========================================================
+  // ==========================================================
   // 🔒 LOCK
-  // ========================================================
+  // ==========================================================
 
   if (command === "lock") {
-    if (!message.member.permissions.has(PermissionsBitField.Flags.ManageChannels)) {
-      return message.reply("❌ No tienes permiso.");
+
+    if (
+      !message.member.permissions.has(
+        PermissionsBitField.Flags.ManageChannels
+      )
+    ) {
+      return message.reply(
+        "❌ No tienes permiso."
+      );
     }
 
     await message.channel.permissionOverwrites.edit(
@@ -1040,13 +1217,20 @@ client.on(Events.MessageCreate, async message => {
     });
   }
 
-  // ========================================================
+  // ==========================================================
   // 🔓 UNLOCK
-  // ========================================================
+  // ==========================================================
 
   if (command === "unlock") {
-    if (!message.member.permissions.has(PermissionsBitField.Flags.ManageChannels)) {
-      return message.reply("❌ No tienes permiso.");
+
+    if (
+      !message.member.permissions.has(
+        PermissionsBitField.Flags.ManageChannels
+      )
+    ) {
+      return message.reply(
+        "❌ No tienes permiso."
+      );
     }
 
     await message.channel.permissionOverwrites.edit(
@@ -1067,24 +1251,36 @@ client.on(Events.MessageCreate, async message => {
     });
   }
 
-  // ========================================================
+  // ==========================================================
   // ⚠️ WARN
-  // ========================================================
+  // ==========================================================
 
   if (command === "warn") {
-    if (!message.member.permissions.has(PermissionsBitField.Flags.ModerateMembers)) {
-      return message.reply("❌ No tienes permiso.");
+
+    if (
+      !message.member.permissions.has(
+        PermissionsBitField.Flags.ModerateMembers
+      )
+    ) {
+      return message.reply(
+        "❌ No tienes permiso."
+      );
     }
 
-    const member = message.mentions.members.first();
+    const member =
+      message.mentions.members.first();
 
     if (!member) {
-      return message.reply("❌ Menciona al usuario.");
+      return message.reply(
+        "❌ Menciona al usuario."
+      );
     }
 
-    const reason = args.slice(1).join(" ") || "Sin razón";
+    const reason =
+      args.slice(1).join(" ") || "Sin razón";
 
-    const guildData = getGuildData(message.guild.id);
+    const guildData =
+      getGuildData(message.guild.id);
 
     if (!guildData.warnings[member.id]) {
       guildData.warnings[member.id] = [];
@@ -1109,17 +1305,21 @@ client.on(Events.MessageCreate, async message => {
     });
   }
 
-  // ========================================================
+  // ==========================================================
   // ⚠️ WARNINGS
-  // ========================================================
+  // ==========================================================
 
   if (command === "warnings") {
+
     const member =
       message.mentions.members.first() ||
       message.member;
 
-    const guildData = getGuildData(message.guild.id);
-    const warnings = guildData.warnings[member.id] || [];
+    const guildData =
+      getGuildData(message.guild.id);
+
+    const warnings =
+      guildData.warnings[member.id] || [];
 
     return message.reply({
       embeds: [
@@ -1139,19 +1339,23 @@ client.on(Events.MessageCreate, async message => {
     });
   }
 
-  // ========================================================
+  // ==========================================================
   // 🔐 PERMISSIONS
-  // ========================================================
+  // ==========================================================
 
   if (command === "permissions") {
-    const permissions = message.member.permissions.toArray();
+
+    const permissions =
+      message.member.permissions.toArray();
 
     return message.reply({
       embeds: [
         embed(
           "🔐 TUS PERMISOS",
           permissions.length
-            ? permissions.map(p => `• ${p}`).join("\n")
+            ? permissions
+                .map(p => `• ${p}`)
+                .join("\n")
             : "No hay permisos especiales.",
           COLORS.cyan
         )
@@ -1159,30 +1363,48 @@ client.on(Events.MessageCreate, async message => {
     });
   }
 
-  // ========================================================
+  // ==========================================================
   // ⚙️ CONFIG
-  // ========================================================
+  // ==========================================================
 
   if (
     command === "config" ||
     command === "settings"
   ) {
-    if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
+
+    if (
+      !message.member.permissions.has(
+        PermissionsBitField.Flags.Administrator
+      )
+    ) {
       return message.reply(
         "❌ Este comando es exclusivo para administradores."
       );
     }
 
-    const guildData = getGuildData(message.guild.id);
+    const guildData =
+      getGuildData(message.guild.id);
 
     return message.reply({
       embeds: [
         embed(
           "⚙️ CONFIGURACIÓN DE NEXORA",
           [
-            `👋 Bienvenida: ${guildData.welcomeChannel ? `<#${guildData.welcomeChannel}>` : "No configurada"}`,
-            `📜 Logs: ${guildData.logsChannel ? `<#${guildData.logsChannel}>` : "No configurados"}`,
-            `🎭 Autorol: ${guildData.autoRole ? `<@&${guildData.autoRole}>` : "No configurado"}`
+            `👋 Bienvenida: ${
+              guildData.welcomeChannel
+                ? `<#${guildData.welcomeChannel}>`
+                : "No configurada"
+            }`,
+            `📜 Logs: ${
+              guildData.logsChannel
+                ? `<#${guildData.logsChannel}>`
+                : "No configurados"
+            }`,
+            `🎭 Autorol: ${
+              guildData.autoRole
+                ? `<@&${guildData.autoRole}>`
+                : "No configurado"
+            }`
           ].join("\n"),
           COLORS.purple
         )
@@ -1190,22 +1412,32 @@ client.on(Events.MessageCreate, async message => {
     });
   }
 
-  // ========================================================
+  // ==========================================================
   // 👋 SETWELCOME
-  // ========================================================
+  // ==========================================================
 
   if (command === "setwelcome") {
-    if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
-      return message.reply("❌ Solo los administradores pueden usar esto.");
+
+    if (
+      !message.member.permissions.has(
+        PermissionsBitField.Flags.Administrator
+      )
+    ) {
+      return message.reply(
+        "❌ Solo los administradores pueden usar esto."
+      );
     }
 
     const channel =
       message.mentions.channels.first() ||
       message.channel;
 
-    const guildData = getGuildData(message.guild.id);
+    const guildData =
+      getGuildData(message.guild.id);
 
-    guildData.welcomeChannel = channel.id;
+    guildData.welcomeChannel =
+      channel.id;
+
     saveData();
 
     return message.reply({
@@ -1219,22 +1451,32 @@ client.on(Events.MessageCreate, async message => {
     });
   }
 
-  // ========================================================
+  // ==========================================================
   // 📜 SETLOGS
-  // ========================================================
+  // ==========================================================
 
   if (command === "setlogs") {
-    if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
-      return message.reply("❌ Solo los administradores pueden usar esto.");
+
+    if (
+      !message.member.permissions.has(
+        PermissionsBitField.Flags.Administrator
+      )
+    ) {
+      return message.reply(
+        "❌ Solo los administradores pueden usar esto."
+      );
     }
 
     const channel =
       message.mentions.channels.first() ||
       message.channel;
 
-    const guildData = getGuildData(message.guild.id);
+    const guildData =
+      getGuildData(message.guild.id);
 
-    guildData.logsChannel = channel.id;
+    guildData.logsChannel =
+      channel.id;
+
     saveData();
 
     return message.reply({
@@ -1248,16 +1490,24 @@ client.on(Events.MessageCreate, async message => {
     });
   }
 
-  // ========================================================
+  // ==========================================================
   // 🎭 SETAUTOROLE
-  // ========================================================
+  // ==========================================================
 
   if (command === "setautorole") {
-    if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
-      return message.reply("❌ Solo los administradores pueden usar esto.");
+
+    if (
+      !message.member.permissions.has(
+        PermissionsBitField.Flags.Administrator
+      )
+    ) {
+      return message.reply(
+        "❌ Solo los administradores pueden usar esto."
+      );
     }
 
-    const role = message.mentions.roles.first();
+    const role =
+      message.mentions.roles.first();
 
     if (!role) {
       return message.reply(
@@ -1265,9 +1515,12 @@ client.on(Events.MessageCreate, async message => {
       );
     }
 
-    const guildData = getGuildData(message.guild.id);
+    const guildData =
+      getGuildData(message.guild.id);
 
-    guildData.autoRole = role.id;
+    guildData.autoRole =
+      role.id;
+
     saveData();
 
     return message.reply({
@@ -1281,16 +1534,19 @@ client.on(Events.MessageCreate, async message => {
     });
   }
 
-  // ========================================================
+  // ==========================================================
   // 🎫 TICKET
-  // ========================================================
+  // ==========================================================
 
   if (command === "ticket") {
-    const existing = message.guild.channels.cache.find(
-      c =>
-        c.name === `ticket-${message.author.username.toLowerCase()}` &&
-        c.type === 0
-    );
+
+    const existing =
+      message.guild.channels.cache.find(
+        c =>
+          c.name ===
+            `ticket-${message.author.username.toLowerCase()}` &&
+          c.type === 0
+      );
 
     if (existing) {
       return message.reply(
@@ -1298,31 +1554,43 @@ client.on(Events.MessageCreate, async message => {
       );
     }
 
-    const channel = await message.guild.channels.create({
-      name: `ticket-${message.author.username}`.toLowerCase().slice(0, 90),
-      type: 0,
-      permissionOverwrites: [
-        {
-          id: message.guild.roles.everyone.id,
-          deny: [PermissionsBitField.Flags.ViewChannel]
-        },
-        {
-          id: message.author.id,
-          allow: [
-            PermissionsBitField.Flags.ViewChannel,
-            PermissionsBitField.Flags.SendMessages
-          ]
-        }
-      ]
-    });
+    const channel =
+      await message.guild.channels.create({
+        name:
+          `ticket-${message.author.username}`
+            .toLowerCase()
+            .slice(0, 90),
 
-    const closeButton = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId("close_ticket")
-        .setLabel("Cerrar ticket")
-        .setEmoji("🔒")
-        .setStyle(ButtonStyle.Danger)
-    );
+        type: 0,
+
+        permissionOverwrites: [
+          {
+            id: message.guild.roles.everyone.id,
+
+            deny: [
+              PermissionsBitField.Flags.ViewChannel
+            ]
+          },
+
+          {
+            id: message.author.id,
+
+            allow: [
+              PermissionsBitField.Flags.ViewChannel,
+              PermissionsBitField.Flags.SendMessages
+            ]
+          }
+        ]
+      });
+
+    const closeButton =
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId("close_ticket")
+          .setLabel("Cerrar ticket")
+          .setEmoji("🔒")
+          .setStyle(ButtonStyle.Danger)
+      );
 
     await channel.send({
       embeds: [
@@ -1338,7 +1606,10 @@ client.on(Events.MessageCreate, async message => {
           COLORS.purple
         )
       ],
-      components: [closeButton]
+
+      components: [
+        closeButton
+      ]
     });
 
     return message.reply(
@@ -1346,62 +1617,85 @@ client.on(Events.MessageCreate, async message => {
     );
   }
 
-  // ========================================================
+  // ==========================================================
   // 📢 SAY
-  // ========================================================
+  // ==========================================================
 
   if (command === "say") {
+
     if (!args.length) {
-      return message.reply("❌ Escribe algo para que Nexora diga.");
+      return message.reply(
+        "❌ Escribe algo para que Nexora diga."
+      );
     }
 
-    if (!message.member.permissions.has(PermissionsBitField.Flags.ManageMessages)) {
-      return message.reply("❌ No tienes permiso para usar este comando.");
+    if (
+      !message.member.permissions.has(
+        PermissionsBitField.Flags.ManageMessages
+      )
+    ) {
+      return message.reply(
+        "❌ No tienes permiso para usar este comando."
+      );
     }
 
-    const text = args.join(" ");
+    const text =
+      args.join(" ");
 
     await message.delete().catch(() => {});
 
     return message.channel.send(text);
   }
 
-  // ========================================================
+  // ==========================================================
   // 🎯 RATE
-  // ========================================================
+  // ==========================================================
 
   if (command === "rate") {
+
     if (!args.length) {
-      return message.reply("❌ Escribe algo para puntuar.");
+      return message.reply(
+        "❌ Escribe algo para puntuar."
+      );
     }
 
-    const rating = Math.floor(Math.random() * 11);
+    const rating =
+      Math.floor(Math.random() * 11);
 
     return message.reply({
       embeds: [
         embed(
           "🎯 PUNTUACIÓN",
-          `Yo le doy **${rating}/10** a:\n\n${args.join(" ")}`,
+          `Le doy **${rating}/10** a:\n\n${args.join(" ")}`,
           COLORS.purple
         )
       ]
     });
   }
 
-  // ========================================================
+  // ==========================================================
   // 🔢 RANDOM
-  // ========================================================
+  // ==========================================================
 
   if (command === "random") {
-    const min = parseInt(args[0]) || 1;
-    const max = parseInt(args[1]) || 100;
+
+    const min =
+      parseInt(args[0]) || 1;
+
+    const max =
+      parseInt(args[1]) || 100;
 
     if (min >= max) {
-      return message.reply("❌ El mínimo debe ser menor que el máximo.");
+      return message.reply(
+        "❌ El mínimo debe ser menor que el máximo."
+      );
     }
 
     const result =
-      Math.floor(Math.random() * (max - min + 1)) + min;
+      Math.floor(
+        Math.random() *
+        (max - min + 1)
+      ) + min;
 
     return message.reply({
       embeds: [
@@ -1414,9 +1708,9 @@ client.on(Events.MessageCreate, async message => {
     });
   }
 
-  // ========================================================
+  // ==========================================================
   // ❓ COMANDO DESCONOCIDO
-  // ========================================================
+  // ==========================================================
 
   return message.reply({
     embeds: [
@@ -1434,91 +1728,203 @@ client.on(Events.MessageCreate, async message => {
 });
 
 // ============================================================
-// 🖱️ INTERACCIONES DEL MENÚ
+// 🖱️ INTERACCIONES
 // ============================================================
 
-client.on(Events.InteractionCreate, async interaction => {
+client.on(
+  Events.InteractionCreate,
+  async interaction => {
 
-  // ========================================================
-  // 📋 SELECT MENU
-  // ========================================================
+    // ========================================================
+    // 📋 SELECT MENU
+    // ========================================================
 
-  if (interaction.isStringSelectMenu()) {
+    if (interaction.isStringSelectMenu()) {
 
-    if (interaction.customId !== "nexora_help") return;
+      if (
+        interaction.customId !==
+        "nexora_help"
+      ) {
+        return;
+      }
 
-    const selected = interaction.values[0];
+      const selected =
+        interaction.values[0];
 
-    if (!categories[selected]) return;
+      if (!categories[selected]) {
+        return;
+      }
 
-    return interaction.update({
-      embeds: [categoryEmbed(selected)],
-      components: [createBackButton()]
-    });
-  }
-
-  // ========================================================
-  // ↩️ VOLVER
-  // ========================================================
-
-  if (interaction.isButton()) {
-
-    if (interaction.customId === "nexora_back") {
       return interaction.update({
-        embeds: [mainHelpEmbed()],
-        components: [createMainMenu()]
+        embeds: [
+          categoryEmbed(selected)
+        ],
+        components: [
+          createBackButton()
+        ]
       });
     }
 
-    // ======================================================
-    // 🎫 CERRAR TICKET
-    // ======================================================
+    // ========================================================
+    // 🔘 BOTONES
+    // ========================================================
 
-    if (interaction.customId === "close_ticket") {
+    if (interaction.isButton()) {
 
-      if (!interaction.channel.name.startsWith("ticket-")) {
-        return interaction.reply({
-          content: "❌ Este canal no es un ticket.",
-          ephemeral: true
+      // ======================================================
+      // ↩️ VOLVER
+      // ======================================================
+
+      if (
+        interaction.customId ===
+        "nexora_back"
+      ) {
+
+        return interaction.update({
+          embeds: [
+            mainHelpEmbed()
+          ],
+          components: [
+            createMainMenu()
+          ]
         });
       }
 
-      await interaction.reply({
-        content: "🔒 Cerrando ticket...",
-        ephemeral: true
-      });
+      // ======================================================
+      // 🎫 CERRAR TICKET
+      // ======================================================
 
-      setTimeout(() => {
-        interaction.channel.delete().catch(() => {});
-      }, 2000);
+      if (
+        interaction.customId ===
+        "close_ticket"
+      ) {
+
+        if (
+          !interaction.channel ||
+          !interaction.channel.name ||
+          !interaction.channel.name.startsWith(
+            "ticket-"
+          )
+        ) {
+
+          return interaction.reply({
+            content:
+              "❌ Este canal no es un ticket.",
+            ephemeral: true
+          });
+        }
+
+        await interaction.reply({
+          content:
+            "🔒 Cerrando ticket...",
+          ephemeral: true
+        });
+
+        setTimeout(() => {
+          interaction.channel
+            .delete()
+            .catch(() => {});
+        }, 2000);
+      }
     }
   }
-});
+);
 
 // ============================================================
 // 🌐 SERVIDOR HTTP PARA RENDER
 // ============================================================
 
-const PORT = process.env.PORT || 3000;
+// Render proporciona PORT automáticamente.
+// El valor predeterminado de Render es 10000.
 
-http.createServer((req, res) => {
-  res.writeHead(200, {
-    "Content-Type": "text/plain; charset=utf-8"
-  });
+const PORT =
+  Number(process.env.PORT) || 10000;
 
-  res.end("🌌 Nexora online.");
-}).listen(PORT, () => {
-  console.log(`🌐 Servidor HTTP activo en el puerto ${PORT}`);
-});
+const server =
+  http.createServer(
+    (req, res) => {
+
+      res.writeHead(
+        200,
+        {
+          "Content-Type":
+            "text/plain; charset=utf-8"
+        }
+      );
+
+      res.end(
+        "🌌 Nexora online."
+      );
+    }
+  );
+
+server.listen(
+  PORT,
+  "0.0.0.0",
+  () => {
+
+    console.log(
+      `🌐 Nexora HTTP activo en 0.0.0.0:${PORT}`
+    );
+  }
+);
 
 // ============================================================
-// 🔑 LOGIN
+// 🔑 LOGIN DE DISCORD
 // ============================================================
 
-client.login(process.env.DISCORD_TOKEN)
+console.log(
+  "🔄 Intentando conectar Nexora a Discord..."
+);
+
+client.login(
+  process.env.DISCORD_TOKEN
+)
   .then(() => {
-    console.log("✅ Nexora está conectado a Discord.");
+
+    console.log(
+      "🔐 Token aceptado por Discord."
+    );
   })
   .catch(error => {
-    console.error("❌ Error al conectar Nexora:", error.message);
+
+    console.error(
+      "❌ ERROR AL CONECTAR NEXORA"
+    );
+
+    console.error(
+      "Código:",
+      error.code || "Desconocido"
+    );
+
+    console.error(
+      "Mensaje:",
+      error.message
+    );
   });
+
+// ============================================================
+// 🚨 ERRORES
+// ============================================================
+
+process.on(
+  "unhandledRejection",
+  error => {
+
+    console.error(
+      "❌ Unhandled Rejection:",
+      error
+    );
+  }
+);
+
+process.on(
+  "uncaughtException",
+  error => {
+
+    console.error(
+      "❌ Uncaught Exception:",
+      error
+    );
+  }
+);
