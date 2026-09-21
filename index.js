@@ -452,10 +452,6 @@ client.on(Events.MessageCreate, async message => {
   const key = `${message.guild.id}-${message.author.id}`;
   const now = Date.now();
 
-  // ==========================================================
-  // ⭐ EXPERIENCIA
-  // ==========================================================
-
   if (
     !cooldowns.has(key) ||
     now - cooldowns.get(key) > 60000
@@ -488,10 +484,6 @@ client.on(Events.MessageCreate, async message => {
     saveData();
   }
 
-  // ==========================================================
-  // PREFIX
-  // ==========================================================
-
   if (!message.content.toLowerCase().startsWith(PREFIX)) {
     return;
   }
@@ -505,10 +497,6 @@ client.on(Events.MessageCreate, async message => {
 
   if (!command) return;
 
-  // ==========================================================
-  // 🌌 HELP
-  // ==========================================================
-
   if (command === "help" || command === "ayuda") {
 
     return message.reply({
@@ -516,10 +504,6 @@ client.on(Events.MessageCreate, async message => {
       components: [createMainMenu()]
     });
   }
-
-  // ==========================================================
-  // 📡 PING
-  // ==========================================================
 
   if (command === "ping") {
 
@@ -533,10 +517,6 @@ client.on(Events.MessageCreate, async message => {
       ]
     });
   }
-
-  // ==========================================================
-  // 🤖 BOTINFO
-  // ==========================================================
 
   if (command === "botinfo") {
 
@@ -560,10 +540,6 @@ client.on(Events.MessageCreate, async message => {
     });
   }
 
-  // ==========================================================
-  // 🏠 SERVERINFO
-  // ==========================================================
-
   if (command === "serverinfo") {
 
     const guild = message.guild;
@@ -586,10 +562,6 @@ client.on(Events.MessageCreate, async message => {
       ]
     });
   }
-
-  // ==========================================================
-  // 👤 USERINFO
-  // ==========================================================
 
   if (command === "userinfo") {
 
@@ -624,10 +596,6 @@ client.on(Events.MessageCreate, async message => {
     });
   }
 
-  // ==========================================================
-  // 🖼️ AVATAR
-  // ==========================================================
-
   if (command === "avatar") {
 
     const user =
@@ -652,10 +620,6 @@ client.on(Events.MessageCreate, async message => {
     });
   }
 
-  // ==========================================================
-  // 📊 STATS
-  // ==========================================================
-
   if (command === "stats") {
 
     return message.reply({
@@ -674,10 +638,6 @@ client.on(Events.MessageCreate, async message => {
     });
   }
 
-  // ==========================================================
-  // 💰 BALANCE
-  // ==========================================================
-
   if (command === "balance" || command === "bal") {
 
     const user = getUserData(message.author.id);
@@ -692,10 +652,6 @@ client.on(Events.MessageCreate, async message => {
       ]
     });
   }
-
-  // ==========================================================
-  // 🎁 DAILY
-  // ==========================================================
 
   if (command === "daily") {
 
@@ -737,10 +693,6 @@ client.on(Events.MessageCreate, async message => {
     });
   }
 
-  // ==========================================================
-  // 💼 WORK
-  // ==========================================================
-
   if (command === "work") {
 
     const user = getUserData(message.author.id);
@@ -763,10 +715,6 @@ client.on(Events.MessageCreate, async message => {
     });
   }
 
-  // ==========================================================
-  // 🪙 COIN
-  // ==========================================================
-
   if (command === "coinflip" || command === "coin") {
 
     const result =
@@ -785,10 +733,6 @@ client.on(Events.MessageCreate, async message => {
     });
   }
 
-  // ==========================================================
-  // 🎲 DADO
-  // ==========================================================
-
   if (command === "dice" || command === "dado") {
 
     const result =
@@ -804,10 +748,6 @@ client.on(Events.MessageCreate, async message => {
       ]
     });
   }
-
-  // ==========================================================
-  // 🎱 8BALL
-  // ==========================================================
 
   if (command === "8ball") {
 
@@ -835,10 +775,6 @@ client.on(Events.MessageCreate, async message => {
     });
   }
 
-  // ==========================================================
-  // 🎯 CHOOSE
-  // ==========================================================
-
   if (command === "choose") {
 
     if (args.length < 2) {
@@ -860,10 +796,6 @@ client.on(Events.MessageCreate, async message => {
       ]
     });
   }
-
-  // ==========================================================
-  // ⭐ RANK
-  // ==========================================================
 
   if (command === "rank" || command === "profile") {
 
@@ -888,10 +820,6 @@ client.on(Events.MessageCreate, async message => {
       ]
     });
   }
-
-  // ==========================================================
-  // 🏆 LEADERBOARD
-  // ==========================================================
 
   if (command === "leaderboard" || command === "top") {
 
@@ -929,10 +857,6 @@ client.on(Events.MessageCreate, async message => {
       ]
     });
   }
-
-  // ==========================================================
-  // 🛡️ KICK
-  // ==========================================================
 
   if (command === "kick") {
 
@@ -976,10 +900,6 @@ client.on(Events.MessageCreate, async message => {
       ]
     });
   }
-
-  // ==========================================================
-  // 🔨 BAN
-  // ==========================================================
 
   if (command === "ban") {
 
@@ -1025,10 +945,6 @@ client.on(Events.MessageCreate, async message => {
       ]
     });
   }
-
-  // ==========================================================
-  // ⏱️ TIMEOUT
-  // ==========================================================
 
   if (command === "timeout") {
 
@@ -1086,10 +1002,6 @@ client.on(Events.MessageCreate, async message => {
     });
   }
 
-  // ==========================================================
-  // 🧹 CLEAR
-  // ==========================================================
-
   if (command === "clear") {
 
     if (
@@ -1139,10 +1051,6 @@ client.on(Events.MessageCreate, async message => {
     return;
   }
 
-  // ==========================================================
-  // 🐌 SLOWMODE
-  // ==========================================================
-
   if (command === "slowmode") {
 
     if (
@@ -1183,10 +1091,6 @@ client.on(Events.MessageCreate, async message => {
     });
   }
 
-  // ==========================================================
-  // 🔒 LOCK
-  // ==========================================================
-
   if (command === "lock") {
 
     if (
@@ -1217,10 +1121,6 @@ client.on(Events.MessageCreate, async message => {
     });
   }
 
-  // ==========================================================
-  // 🔓 UNLOCK
-  // ==========================================================
-
   if (command === "unlock") {
 
     if (
@@ -1250,10 +1150,6 @@ client.on(Events.MessageCreate, async message => {
       ]
     });
   }
-
-  // ==========================================================
-  // ⚠️ WARN
-  // ==========================================================
 
   if (command === "warn") {
 
@@ -1305,10 +1201,6 @@ client.on(Events.MessageCreate, async message => {
     });
   }
 
-  // ==========================================================
-  // ⚠️ WARNINGS
-  // ==========================================================
-
   if (command === "warnings") {
 
     const member =
@@ -1339,10 +1231,6 @@ client.on(Events.MessageCreate, async message => {
     });
   }
 
-  // ==========================================================
-  // 🔐 PERMISSIONS
-  // ==========================================================
-
   if (command === "permissions") {
 
     const permissions =
@@ -1362,10 +1250,6 @@ client.on(Events.MessageCreate, async message => {
       ]
     });
   }
-
-  // ==========================================================
-  // ⚙️ CONFIG
-  // ==========================================================
 
   if (
     command === "config" ||
@@ -1412,10 +1296,6 @@ client.on(Events.MessageCreate, async message => {
     });
   }
 
-  // ==========================================================
-  // 👋 SETWELCOME
-  // ==========================================================
-
   if (command === "setwelcome") {
 
     if (
@@ -1451,10 +1331,6 @@ client.on(Events.MessageCreate, async message => {
     });
   }
 
-  // ==========================================================
-  // 📜 SETLOGS
-  // ==========================================================
-
   if (command === "setlogs") {
 
     if (
@@ -1489,10 +1365,6 @@ client.on(Events.MessageCreate, async message => {
       ]
     });
   }
-
-  // ==========================================================
-  // 🎭 SETAUTOROLE
-  // ==========================================================
 
   if (command === "setautorole") {
 
@@ -1533,10 +1405,6 @@ client.on(Events.MessageCreate, async message => {
       ]
     });
   }
-
-  // ==========================================================
-  // 🎫 TICKET
-  // ==========================================================
 
   if (command === "ticket") {
 
@@ -1617,10 +1485,6 @@ client.on(Events.MessageCreate, async message => {
     );
   }
 
-  // ==========================================================
-  // 📢 SAY
-  // ==========================================================
-
   if (command === "say") {
 
     if (!args.length) {
@@ -1647,10 +1511,6 @@ client.on(Events.MessageCreate, async message => {
     return message.channel.send(text);
   }
 
-  // ==========================================================
-  // 🎯 RATE
-  // ==========================================================
-
   if (command === "rate") {
 
     if (!args.length) {
@@ -1672,10 +1532,6 @@ client.on(Events.MessageCreate, async message => {
       ]
     });
   }
-
-  // ==========================================================
-  // 🔢 RANDOM
-  // ==========================================================
 
   if (command === "random") {
 
@@ -1708,10 +1564,6 @@ client.on(Events.MessageCreate, async message => {
     });
   }
 
-  // ==========================================================
-  // ❓ COMANDO DESCONOCIDO
-  // ==========================================================
-
   return message.reply({
     embeds: [
       embed(
@@ -1734,10 +1586,6 @@ client.on(Events.MessageCreate, async message => {
 client.on(
   Events.InteractionCreate,
   async interaction => {
-
-    // ========================================================
-    // 📋 SELECT MENU
-    // ========================================================
 
     if (interaction.isStringSelectMenu()) {
 
@@ -1765,15 +1613,7 @@ client.on(
       });
     }
 
-    // ========================================================
-    // 🔘 BOTONES
-    // ========================================================
-
     if (interaction.isButton()) {
-
-      // ======================================================
-      // ↩️ VOLVER
-      // ======================================================
 
       if (
         interaction.customId ===
@@ -1789,10 +1629,6 @@ client.on(
           ]
         });
       }
-
-      // ======================================================
-      // 🎫 CERRAR TICKET
-      // ======================================================
 
       if (
         interaction.customId ===
@@ -1834,9 +1670,6 @@ client.on(
 // 🌐 SERVIDOR HTTP PARA RENDER
 // ============================================================
 
-// Render proporciona PORT automáticamente.
-// El valor predeterminado de Render es 10000.
-
 const PORT =
   Number(process.env.PORT) || 10000;
 
@@ -1870,36 +1703,46 @@ server.listen(
 );
 
 // ============================================================
-// 🔑 LOGIN DE DISCORD
+// 🔑 LOGIN DE DISCORD + DIAGNÓSTICO
 // ============================================================
 
 console.log(
   "🔄 Intentando conectar Nexora a Discord..."
 );
 
-client.login(
-  process.env.DISCORD_TOKEN
-)
-  .then(() => {
+client.on("debug", info => {
+  console.log("🔎 DEBUG:", info);
+});
 
-    console.log(
-      "🔐 Token aceptado por Discord."
-    );
+client.on("error", error => {
+  console.error("❌ DISCORD ERROR:", error);
+});
+
+client.on("shardError", error => {
+  console.error("❌ SHARD ERROR:", error);
+});
+
+client.on("shardReconnecting", () => {
+  console.log("🔄 Discord está intentando reconectar...");
+});
+
+client.on("shardReady", () => {
+  console.log("🟢 Gateway de Discord conectado.");
+});
+
+client.login(process.env.DISCORD_TOKEN)
+  .then(() => {
+    console.log("🔐 Token aceptado por Discord.");
   })
   .catch(error => {
-
-    console.error(
-      "❌ ERROR AL CONECTAR NEXORA"
-    );
-
+    console.error("❌ ERROR AL CONECTAR NEXORA");
     console.error(
       "Código:",
       error.code || "Desconocido"
     );
-
     console.error(
       "Mensaje:",
-      error.message
+      error.message || "Sin mensaje"
     );
   });
 
