@@ -1,6 +1,6 @@
 // ============================================================
 // 🌌 NEXORA — DISCORD BOT
-// PREFIX: n.
+// Prefix: n.
 // discord.js v14
 // ============================================================
 
@@ -11,40 +11,34 @@ const {
   PermissionsBitField,
   EmbedBuilder,
   ActionRowBuilder,
+  StringSelectMenuBuilder,
   ButtonBuilder,
   ButtonStyle,
-  StringSelectMenuBuilder,
   Events
 } = require("discord.js");
 
 const fs = require("fs");
 const path = require("path");
-const http = require("http");
 
 // ============================================================
 // ⚙️ CONFIGURACIÓN
 // ============================================================
 
 const PREFIX = "n.";
-const DATA_FILE = path.join(__dirname, "data.json");
-
-// ============================================================
-// 🤖 CLIENTE
-// ============================================================
+const DATA_FILE = path.join(__dirname, "nexora-data.json");
 
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMembers,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
-    GatewayIntentBits.GuildModeration
+    GatewayIntentBits.GuildMembers
   ],
   partials: [Partials.Channel]
 });
 
 // ============================================================
-// 💾 DATOS
+// 💾 BASE DE DATOS
 // ============================================================
 
 let data = {
@@ -52,41 +46,51 @@ let data = {
   guilds: {}
 };
 
-try {
-  if (fs.existsSync(DATA_FILE)) {
-    data = JSON.parse(
-      fs.readFileSync(DATA_FILE, "utf8")
-    );
+function loadData() {
+  try {
+    if (fs.existsSync(DATA_FILE)) {
+      const saved = JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
+
+      data = {
+        users: saved.users || {},
+        guilds: saved.guilds || {}
+      };
+    }
+  } catch (error) {
+    console.error("❌ Error cargando la base de datos:", error);
   }
-} catch (error) {
-  console.error(
-    "❌ Error leyendo data.json:",
-    error.message
-  );
 }
 
 function saveData() {
   try {
     fs.writeFileSync(
       DATA_FILE,
-      JSON.stringify(data, null, 2)
+      JSON.stringify(data, null, 2),
+      "utf8"
     );
   } catch (error) {
-    console.error(
-      "❌ Error guardando data.json:",
-      error.message
-    );
+    console.error("❌ Error guardando la base de datos:", error);
   }
 }
 
-function getUserData(userId) {
+loadData();
+
+// ============================================================
+// 👤 DATOS DEL USUARIO
+// ============================================================
+
+function getUser(userId) {
   if (!data.users[userId]) {
     data.users[userId] = {
-      balance: 0,
-      xp: 0,
+      money: 1000,
+      bank: 0,
       level: 1,
+      xp: 0,
+      reputation: 0,
       daily: 0,
-      warnings: []
+      lastDaily: 0,
+      lastWork: 0,
+      inventory: []
     };
 
     saveData();
@@ -95,13 +99,14 @@ function getUserData(userId) {
   return data.users[userId];
 }
 
-function getGuildData(guildId) {
+// ============================================================
+// 🏠 DATOS DEL SERVIDOR
+// ============================================================
+
+function getGuild(guildId) {
   if (!data.guilds[guildId]) {
     data.guilds[guildId] = {
-      welcomeChannel: null,
-      logsChannel: null,
-      autoRole: null,
-      tickets: null
+      prefix: PREFIX
     };
 
     saveData();
@@ -111,1636 +116,814 @@ function getGuildData(guildId) {
 }
 
 // ============================================================
-// 🎨 COLORES
+// 🌌 COLORES
 // ============================================================
 
 const COLORS = {
-  main: 0x5865F2,
-  galaxy: 0x8B5CF6,
-  success: 0x57F287,
-  danger: 0xED4245,
-  warning: 0xFEE75C,
-  dark: 0x18191C
+  galaxy: 0x6C5CE7,
+  blue: 0x3498DB,
+  green: 0x2ECC71,
+  red: 0xE74C3C,
+  gold: 0xF1C40F,
+  purple: 0x9B59B6,
+  dark: 0x15152B
 };
 
 // ============================================================
-// 🧩 EMBEDS
+// 🌌 EMBED PRINCIPAL
 // ============================================================
 
-function createEmbed(
-  title,
-  description,
-  color = COLORS.main
-) {
+function mainEmbed(user) {
   return new EmbedBuilder()
-    .setColor(color)
-    .setTitle(title)
-    .setDescription(description)
+    .setColor(COLORS.galaxy)
+    .setTitle("🌌 NEXORA")
+    .setDescription(
+      `> ✨ Bienvenido al universo de **Nexora**.\n` +
+      `> Explora todas las funciones utilizando el menú de abajo.\n\n` +
+
+      `💰 **Economía**\n` +
+      `Compra, trabaja, ahorra y administra tu dinero.\n\n` +
+
+      `👥 **Social**\n` +
+      `Interactúa con otros usuarios y desarrolla tu perfil.\n\n` +
+
+      `🎮 **Diversión**\n` +
+      `Juega y descubre diferentes funciones.\n\n` +
+
+      `🎁 **Recompensas**\n` +
+      `Obtén premios y recompensas diarias.\n\n` +
+
+      `🛡️ **Moderación**\n` +
+      `Herramientas para administrar el servidor.\n\n` +
+
+      `⚙️ **Configuración**\n` +
+      `Personaliza Nexora para tu servidor.`
+    )
+    .addFields(
+      {
+        name: "👤 Usuario",
+        value: `<@${user.id}>`,
+        inline: true
+      },
+      {
+        name: "💰 Dinero",
+        value: `$${getUser(user.id).money.toLocaleString()}`,
+        inline: true
+      },
+      {
+        name: "⭐ Nivel",
+        value: `${getUser(user.id).level}`,
+        inline: true
+      }
+    )
     .setFooter({
-      text: "🌌 Nexora"
+      text: "🌌 Nexora • Explora el universo"
     })
     .setTimestamp();
 }
 
 // ============================================================
-// 📚 CATEGORÍAS
-// ============================================================
-
-const categories = {
-  general: {
-    name: "🌌 General",
-    commands: [
-      "help",
-      "ping",
-      "botinfo",
-      "serverinfo",
-      "userinfo",
-      "avatar",
-      "stats",
-      "id",
-      "created",
-      "icon"
-    ]
-  },
-
-  moderation: {
-    name: "🛡️ Moderación",
-    commands: [
-      "kick",
-      "ban",
-      "unban",
-      "timeout",
-      "untimeout",
-      "clear",
-      "slowmode",
-      "lock",
-      "unlock",
-      "warn"
-    ]
-  },
-
-  security: {
-    name: "🔐 Seguridad",
-    commands: [
-      "warnings",
-      "clearwarns",
-      "permissions",
-      "membercheck",
-      "roleinfo",
-      "channelinfo",
-      "audit",
-      "lockdown",
-      "unlockdown",
-      "security"
-    ]
-  },
-
-  server: {
-    name: "🏠 Servidor",
-    commands: [
-      "channels",
-      "roles",
-      "members",
-      "emojis",
-      "owner",
-      "serverinfo",
-      "created",
-      "icon",
-      "banner"
-    ]
-  },
-
-  economy: {
-    name: "💰 Economía",
-    commands: [
-      "balance",
-      "daily",
-      "work",
-      "beg",
-      "pay",
-      "rich",
-      "deposit",
-      "withdraw",
-      "reverse",
-      "stats"
-    ]
-  },
-
-  fun: {
-    name: "🎮 Diversión",
-    commands: [
-      "coinflip",
-      "dice",
-      "8ball",
-      "choose",
-      "joke",
-      "rate",
-      "random",
-      "ship",
-      "say",
-      "avatar"
-    ]
-  },
-
-  levels: {
-    name: "⭐ Niveles",
-    commands: [
-      "rank",
-      "leaderboard",
-      "xp",
-      "level",
-      "addxp",
-      "resetxp",
-      "setlevel",
-      "levels",
-      "resetconfig",
-      "stats"
-    ]
-  },
-
-  config: {
-    name: "⚙️ Configuración",
-    commands: [
-      "config",
-      "setwelcome",
-      "setlogs",
-      "setautorole",
-      "testwelcome",
-      "testlogs",
-      "testautorole",
-      "admin",
-      "panel",
-      "permissions"
-    ]
-  },
-
-  tickets: {
-    name: "🎫 Tickets",
-    commands: [
-      "ticket",
-      "add",
-      "remove",
-      "rename",
-      "claim",
-      "unclaim",
-      "ticketinfo",
-      "support",
-      "close",
-      "panel"
-    ]
-  }
-};
-
-// ============================================================
-// 📖 MENÚ PRINCIPAL
+// 📋 MENÚ PRINCIPAL
 // ============================================================
 
 function mainMenu() {
-  const embed = createEmbed(
-    "🌌 NEXORA",
-    "Bienvenido al centro de comandos de **Nexora**.\n\n" +
-      "Selecciona una categoría en el menú de abajo.",
-    COLORS.galaxy
-  );
+  return new StringSelectMenuBuilder()
+    .setCustomId("nexora_main_menu")
+    .setPlaceholder("🌌 Selecciona una categoría...")
+    .addOptions([
+      {
+        label: "Economía",
+        description: "Dinero, banco, trabajo, tienda...",
+        value: "economia",
+        emoji: "💰"
+      },
+      {
+        label: "Social",
+        description: "Perfil, reputación y usuarios...",
+        value: "social",
+        emoji: "👥"
+      },
+      {
+        label: "Diversión",
+        description: "Juegos y entretenimiento...",
+        value: "diversion",
+        emoji: "🎮"
+      },
+      {
+        label: "Recompensas",
+        description: "Daily, premios y recompensas...",
+        value: "recompensas",
+        emoji: "🎁"
+      },
+      {
+        label: "Moderación",
+        description: "Herramientas para administradores...",
+        value: "moderacion",
+        emoji: "🛡️"
+      },
+      {
+        label: "Configuración",
+        description: "Configuración de Nexora...",
+        value: "configuracion",
+        emoji: "⚙️"
+      },
+      {
+        label: "Información",
+        description: "Información sobre Nexora...",
+        value: "informacion",
+        emoji: "ℹ️"
+      }
+    ]);
+}
 
-  const menu = new StringSelectMenuBuilder()
-    .setCustomId("nexora_category")
-    .setPlaceholder("🌌 Selecciona una categoría")
-    .addOptions(
-      Object.entries(categories).map(
-        ([id, category]) => ({
-          label: category.name.substring(2),
-          value: id,
-          emoji: category.name.substring(0, 2).trim()
-        })
-      )
-    );
-
-  const row =
-    new ActionRowBuilder().addComponents(menu);
-
-  return {
-    embeds: [embed],
-    components: [row]
-  };
+function mainRow() {
+  return new ActionRowBuilder().addComponents(mainMenu());
 }
 
 // ============================================================
-// 📋 MENÚ DE CATEGORÍA
+// 📋 MENÚ DE CATEGORÍAS
 // ============================================================
 
-function categoryMenu(categoryId) {
-  const category = categories[categoryId];
+function categoryEmbed(category) {
+  const embeds = {
 
-  if (!category) {
-    return mainMenu();
-  }
+    economia: new EmbedBuilder()
+      .setColor(COLORS.green)
+      .setTitle("💰 ECONOMÍA")
+      .setDescription(
+        `Gestiona tu economía dentro de Nexora.\n\n` +
+        `💵 **n.balance** — Ver tu dinero\n` +
+        `🏦 **n.bank** — Ver tu banco\n` +
+        `💼 **n.work** — Trabajar\n` +
+        `🎁 **n.daily** — Recompensa diaria\n` +
+        `💸 **n.pay** — Pagar a otro usuario\n` +
+        `🏪 **n.shop** — Ver la tienda\n` +
+        `🎒 **n.inventory** — Ver inventario`
+      )
+      .setFooter({ text: "🌌 Nexora • Economía" }),
 
-  const embed = createEmbed(
-    category.name,
-    category.commands
-      .map(command => `\`${PREFIX}${command}\``)
-      .join("\n"),
-    COLORS.galaxy
-  );
+    social: new EmbedBuilder()
+      .setColor(COLORS.purple)
+      .setTitle("👥 SOCIAL")
+      .setDescription(
+        `Conoce y personaliza tu perfil.\n\n` +
+        `👤 **n.profile** — Ver tu perfil\n` +
+        `📊 **n.rank** — Ver tu nivel\n` +
+        `⭐ **n.rep** — Dar reputación\n` +
+        `🔎 **n.user** — Ver información de usuario\n` +
+        `🏆 **n.leaderboard** — Clasificación`
+      )
+      .setFooter({ text: "🌌 Nexora • Social" }),
 
-  const backButton =
+    diversion: new EmbedBuilder()
+      .setColor(COLORS.blue)
+      .setTitle("🎮 DIVERSIÓN")
+      .setDescription(
+        `Funciones para pasar el rato.\n\n` +
+        `🎲 **n.roll** — Tirar un dado\n` +
+        `🪙 **n.coinflip** — Lanzar una moneda\n` +
+        `🔢 **n.guess** — Adivina el número\n` +
+        `😂 **n.8ball** — Pregunta a la bola mágica`
+      )
+      .setFooter({ text: "🌌 Nexora • Diversión" }),
+
+    recompensas: new EmbedBuilder()
+      .setColor(COLORS.gold)
+      .setTitle("🎁 RECOMPENSAS")
+      .setDescription(
+        `Obtén diferentes recompensas.\n\n` +
+        `🎁 **n.daily** — Recompensa diaria\n` +
+        `💼 **n.work** — Recompensa por trabajar\n` +
+        `⭐ **n.level** — Ver progreso de nivel\n` +
+        `🏆 **n.leaderboard** — Ranking de usuarios`
+      )
+      .setFooter({ text: "🌌 Nexora • Recompensas" }),
+
+    moderacion: new EmbedBuilder()
+      .setColor(COLORS.red)
+      .setTitle("🛡️ MODERACIÓN")
+      .setDescription(
+        `Herramientas disponibles para moderadores.\n\n` +
+        `🔨 **n.kick @usuario** — Expulsar\n` +
+        `🔨 **n.ban @usuario** — Banear\n` +
+        `🔓 **n.unban ID** — Desbanear\n` +
+        `🧹 **n.clear cantidad** — Borrar mensajes\n` +
+        `🔇 **n.timeout @usuario** — Silenciar temporalmente`
+      )
+      .setFooter({ text: "🌌 Nexora • Moderación" }),
+
+    configuracion: new EmbedBuilder()
+      .setColor(COLORS.dark)
+      .setTitle("⚙️ CONFIGURACIÓN")
+      .setDescription(
+        `Configura Nexora para tu servidor.\n\n` +
+        `⚙️ **n.config** — Ver configuración\n` +
+        `📌 **n.prefix** — Ver prefix actual\n\n` +
+        `Prefix actual: **${PREFIX}**`
+      )
+      .setFooter({ text: "🌌 Nexora • Configuración" }),
+
+    informacion: new EmbedBuilder()
+      .setColor(COLORS.galaxy)
+      .setTitle("ℹ️ INFORMACIÓN")
+      .setDescription(
+        `🌌 **Nexora**\n\n` +
+        `Un bot multifunción diseñado para convertir tu servidor ` +
+        `en un pequeño universo.\n\n` +
+        `🤖 **Bot:** Nexora\n` +
+        `⚙️ **Prefix:** ${PREFIX}\n` +
+        `📚 **Librería:** discord.js v14\n\n` +
+        `Usa **${PREFIX}help** para abrir este menú.`
+      )
+      .setFooter({ text: "🌌 Nexora" })
+  };
+
+  return embeds[category] || embeds.informacion;
+}
+
+// ============================================================
+// 🔙 BOTÓN VOLVER
+// ============================================================
+
+function backButton() {
+  return new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId("nexora_back")
-      .setLabel("Volver")
-      .setEmoji("↩️")
-      .setStyle(ButtonStyle.Secondary);
-
-  const row =
-    new ActionRowBuilder().addComponents(
-      backButton
-    );
-
-  return {
-    embeds: [embed],
-    components: [row]
-  };
+      .setLabel("Volver al menú")
+      .setEmoji("🌌")
+      .setStyle(ButtonStyle.Primary)
+  );
 }
 
 // ============================================================
-// 🚀 READY
+// 🟢 READY
 // ============================================================
 
-client.once(
-  Events.ClientReady,
-  readyClient => {
-    console.log(
-      "━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    );
+client.once(Events.ClientReady, (bot) => {
+  console.log("======================================");
+  console.log("🌌 NEXORA");
+  console.log("======================================");
+  console.log(`✅ Bot conectado como ${bot.user.tag}`);
+  console.log(`🆔 ID: ${bot.user.id}`);
+  console.log(`🌐 Servidores: ${bot.guilds.cache.size}`);
+  console.log(`⚙️ Prefix: ${PREFIX}`);
+  console.log("======================================");
 
-    console.log("🌌 NEXORA INICIADO");
+  bot.user.setPresence({
+    activities: [
+      {
+        name: "🌌 n.help | Explorando el universo",
+        type: 0
+      }
+    ],
+    status: "online"
+  });
+});
 
-    console.log(
-      `🤖 Usuario: ${readyClient.user.tag}`
-    );
+// ============================================================
+// 💬 MENSAJES
+// ============================================================
 
-    console.log(
-      `🌐 Servidores: ${readyClient.guilds.cache.size}`
-    );
+client.on(Events.MessageCreate, async (message) => {
+  if (message.author.bot) return;
+  if (!message.guild) return;
 
-    console.log(
-      `💫 Prefijo: ${PREFIX}`
-    );
+  if (!message.content.toLowerCase().startsWith(PREFIX)) return;
 
-    console.log(
-      "━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    );
+  const args = message.content
+    .slice(PREFIX.length)
+    .trim()
+    .split(/\s+/);
 
-    readyClient.user.setPresence({
-      activities: [
-        {
-          name: "n.help • 🌌 Nexora",
-          type: 0
-        }
-      ],
-      status: "online"
+  const command = args.shift()?.toLowerCase();
+
+  if (!command) return;
+
+  const user = getUser(message.author.id);
+  getGuild(message.guild.id);
+
+  // ==========================================================
+  // 🌌 HELP
+  // ==========================================================
+
+  if (command === "help" || command === "menu") {
+    return message.reply({
+      embeds: [mainEmbed(message.author)],
+      components: [mainRow()]
     });
   }
-);
 
-// ============================================================
-// 📨 MENSAJES
-// ============================================================
+  // ==========================================================
+  // 💰 BALANCE
+  // ==========================================================
 
-client.on(
-  Events.MessageCreate,
-  async message => {
-    if (message.author.bot) return;
-    if (!message.guild) return;
-
-    if (
-      !message.content
-        .toLowerCase()
-        .startsWith(PREFIX)
-    ) {
-      return;
-    }
-
-    const args = message.content
-      .slice(PREFIX.length)
-      .trim()
-      .split(/\s+/);
-
-    const command =
-      args.shift()?.toLowerCase();
-
-    if (!command) return;
-
-    const userData =
-      getUserData(message.author.id);
-
-    // ========================================================
-    // 🌌 HELP
-    // ========================================================
-
-    if (command === "help") {
-      return message.reply(
-        mainMenu()
-      );
-    }
-
-    // ========================================================
-    // 🏓 PING
-    // ========================================================
-
-    if (command === "ping") {
-      return message.reply(
-        createEmbed(
-          "🏓 Pong!",
-          `Latencia: **${client.ws.ping}ms**`,
-          COLORS.success
-        )
-      );
-    }
-
-    // ========================================================
-    // 🤖 BOTINFO
-    // ========================================================
-
-    if (command === "botinfo") {
-      return message.reply(
-        createEmbed(
-          "🤖 Nexora",
-          `🌌 **Nombre:** ${client.user.username}\n` +
-            `🌐 **Servidores:** ${client.guilds.cache.size}\n` +
-            `👥 **Usuarios:** ${client.guilds.cache.reduce(
-              (total, guild) =>
-                total + guild.memberCount,
-              0
-            )}\n` +
-            `💫 **Prefijo:** ${PREFIX}`,
-          COLORS.galaxy
-        )
-      );
-    }
-
-    // ========================================================
-    // 🏠 SERVERINFO
-    // ========================================================
-
-    if (command === "serverinfo") {
-      return message.reply(
-        createEmbed(
-          `🏠 ${message.guild.name}`,
-          `👑 **Dueño:** <@${message.guild.ownerId}>\n` +
-            `👥 **Miembros:** ${message.guild.memberCount}\n` +
-            `💬 **Canales:** ${message.guild.channels.cache.size}\n` +
-            `🎭 **Roles:** ${message.guild.roles.cache.size}\n` +
-            `🆔 **ID:** ${message.guild.id}`
-        )
-      );
-    }
-
-    // ========================================================
-    // 👤 USERINFO
-    // ========================================================
-
-    if (command === "userinfo") {
-      const member =
-        message.mentions.members.first() ||
-        message.member;
-
-      return message.reply(
-        createEmbed(
-          "👤 Información del usuario",
-          `👤 **Usuario:** ${member.user.tag}\n` +
-            `🆔 **ID:** ${member.id}\n` +
-            `📅 **Cuenta:** <t:${Math.floor(
-              member.user.createdTimestamp /
-                1000
-            )}:F>\n` +
-            `📅 **Entró:** ${
-              member.joinedTimestamp
-                ? `<t:${Math.floor(
-                    member.joinedTimestamp /
-                      1000
-                  )}:F>`
-                : "Desconocido"
-            }`
-        )
-      );
-    }
-
-    // ========================================================
-    // 🖼️ AVATAR
-    // ========================================================
-
-    if (command === "avatar") {
-      const member =
-        message.mentions.members.first() ||
-        message.member;
-
-      return message.reply({
-        content:
-          member.user.displayAvatarURL({
-            size: 1024,
-            extension: "png"
-          })
-      });
-    }
-
-    // ========================================================
-    // 📊 STATS
-    // ========================================================
-
-    if (command === "stats") {
-      return message.reply(
-        createEmbed(
-          "📊 Tus estadísticas",
-          `💰 Balance: **${userData.balance}**\n` +
-            `⭐ XP: **${userData.xp}**\n` +
-            `🏆 Nivel: **${userData.level}**\n` +
-            `⚠️ Advertencias: **${userData.warnings.length}**`
-        )
-      );
-    }
-
-    // ========================================================
-    // 💰 BALANCE
-    // ========================================================
-
-    if (command === "balance") {
-      return message.reply(
-        createEmbed(
-          "💰 Balance",
-          `Tienes **${userData.balance}** monedas virtuales.`
-        )
-      );
-    }
-
-    // ========================================================
-    // 🎁 DAILY
-    // ========================================================
-
-    if (command === "daily") {
-      const now = Date.now();
-      const cooldown =
-        24 * 60 * 60 * 1000;
-
-      if (
-        userData.daily &&
-        now - userData.daily <
-          cooldown
-      ) {
-        const remaining =
-          cooldown -
-          (now - userData.daily);
-
-        const hours =
-          Math.ceil(
-            remaining /
-              (60 * 60 * 1000)
-          );
-
-        return message.reply(
-          createEmbed(
-            "⏳ Daily",
-            `Ya reclamaste tu recompensa.\nVuelve en aproximadamente **${hours}h**.`,
-            COLORS.warning
+  if (command === "balance" || command === "bal") {
+    return message.reply({
+      embeds: [
+        new EmbedBuilder()
+          .setColor(COLORS.green)
+          .setTitle("💰 Tu balance")
+          .setDescription(
+            `💵 **Efectivo:** $${user.money.toLocaleString()}\n` +
+            `🏦 **Banco:** $${user.bank.toLocaleString()}\n\n` +
+            `💎 **Total:** $${(user.money + user.bank).toLocaleString()}`
           )
-        );
-      }
+          .setFooter({ text: "🌌 Nexora • Economía" })
+      ]
+    });
+  }
 
-      const reward =
-        Math.floor(
-          Math.random() * 101
-        ) + 100;
+  // ==========================================================
+  // 🏦 BANK
+  // ==========================================================
 
-      userData.balance += reward;
-      userData.daily = now;
+  if (command === "bank") {
+    return message.reply({
+      embeds: [
+        new EmbedBuilder()
+          .setColor(COLORS.blue)
+          .setTitle("🏦 Banco")
+          .setDescription(
+            `💰 Dinero en el banco: **$${user.bank.toLocaleString()}**`
+          )
+      ]
+    });
+  }
 
-      saveData();
+  // ==========================================================
+  // 💼 WORK
+  // ==========================================================
+
+  if (command === "work") {
+    const now = Date.now();
+    const cooldown = 60 * 1000;
+
+    if (now - user.lastWork < cooldown) {
+      const remaining = Math.ceil(
+        (cooldown - (now - user.lastWork)) / 1000
+      );
 
       return message.reply(
-        createEmbed(
-          "🎁 Recompensa diaria",
-          `Recibiste **${reward}** monedas virtuales.`,
-          COLORS.success
-        )
+        `⏳ Debes esperar **${remaining}s** antes de volver a trabajar.`
       );
     }
 
-    // ========================================================
-    // 💼 WORK
-    // ========================================================
+    const earnings = Math.floor(Math.random() * 451) + 150;
 
-    if (command === "work") {
-      const reward =
-        Math.floor(
-          Math.random() * 101
-        ) + 50;
+    user.money += earnings;
+    user.lastWork = now;
 
-      userData.balance += reward;
+    saveData();
 
-      saveData();
+    return message.reply({
+      embeds: [
+        new EmbedBuilder()
+          .setColor(COLORS.green)
+          .setTitle("💼 Trabajo completado")
+          .setDescription(
+            `✨ Has trabajado y recibido **$${earnings.toLocaleString()}**.\n\n` +
+            `💰 Dinero actual: **$${user.money.toLocaleString()}**`
+          )
+      ]
+    });
+  }
+
+  // ==========================================================
+  // 🎁 DAILY
+  // ==========================================================
+
+  if (command === "daily") {
+    const now = Date.now();
+    const cooldown = 24 * 60 * 60 * 1000;
+
+    if (now - user.lastDaily < cooldown) {
+      const remaining = cooldown - (now - user.lastDaily);
+
+      const hours = Math.floor(remaining / 3600000);
+      const minutes = Math.floor(
+        (remaining % 3600000) / 60000
+      );
 
       return message.reply(
-        createEmbed(
-          "💼 Trabajo completado",
-          `Ganaste **${reward}** monedas virtuales.`,
-          COLORS.success
-        )
+        `⏳ Ya reclamaste tu recompensa.\n` +
+        `Vuelve en **${hours}h ${minutes}m**.`
       );
     }
 
-    // ========================================================
-    // 🪙 COINFLIP
-    // ========================================================
+    const reward = 1000;
 
-    if (command === "coinflip") {
-      const result =
-        Math.random() < 0.5
-          ? "🪙 Cara"
-          : "🪙 Cruz";
+    user.money += reward;
+    user.lastDaily = now;
 
+    saveData();
+
+    return message.reply({
+      embeds: [
+        new EmbedBuilder()
+          .setColor(COLORS.gold)
+          .setTitle("🎁 Recompensa diaria")
+          .setDescription(
+            `✨ Has recibido **$${reward.toLocaleString()}**.\n\n` +
+            `💰 Dinero actual: **$${user.money.toLocaleString()}**`
+          )
+      ]
+    });
+  }
+
+  // ==========================================================
+  // 💸 PAY
+  // ==========================================================
+
+  if (command === "pay") {
+    const target =
+      message.mentions.users.first();
+
+    const amount = parseInt(args[1]);
+
+    if (!target) {
       return message.reply(
-        createEmbed(
-          "🪙 Moneda",
-          `Resultado: **${result}**`
-        )
+        `❌ Usa: **${PREFIX}pay @usuario cantidad**`
       );
     }
 
-    // ========================================================
-    // 🎲 DICE
-    // ========================================================
+    if (target.bot) {
+      return message.reply("❌ No puedes pagarle a un bot.");
+    }
 
-    if (command === "dice") {
-      const result =
-        Math.floor(
-          Math.random() * 6
-        ) + 1;
+    if (!amount || amount <= 0) {
+      return message.reply("❌ Especifica una cantidad válida.");
+    }
 
+    if (user.money < amount) {
+      return message.reply("❌ No tienes suficiente dinero.");
+    }
+
+    const targetData = getUser(target.id);
+
+    user.money -= amount;
+    targetData.money += amount;
+
+    saveData();
+
+    return message.reply(
+      `💸 Has enviado **$${amount.toLocaleString()}** a ${target}.`
+    );
+  }
+
+  // ==========================================================
+  // 👤 PROFILE
+  // ==========================================================
+
+  if (command === "profile" || command === "perfil") {
+    const target =
+      message.mentions.users.first() ||
+      message.author;
+
+    const targetData = getUser(target.id);
+
+    return message.reply({
+      embeds: [
+        new EmbedBuilder()
+          .setColor(COLORS.purple)
+          .setTitle(`👤 Perfil de ${target.username}`)
+          .setThumbnail(target.displayAvatarURL({ dynamic: true }))
+          .addFields(
+            {
+              name: "⭐ Nivel",
+              value: `${targetData.level}`,
+              inline: true
+            },
+            {
+              name: "✨ XP",
+              value: `${targetData.xp}`,
+              inline: true
+            },
+            {
+              name: "💰 Dinero",
+              value: `$${targetData.money.toLocaleString()}`,
+              inline: true
+            },
+            {
+              name: "🌟 Reputación",
+              value: `${targetData.reputation}`,
+              inline: true
+            }
+          )
+          .setFooter({ text: "🌌 Nexora • Social" })
+      ]
+    });
+  }
+
+  // ==========================================================
+  // ⭐ REP
+  // ==========================================================
+
+  if (command === "rep") {
+    const target =
+      message.mentions.users.first();
+
+    if (!target) {
       return message.reply(
-        createEmbed(
-          "🎲 Dado",
-          `Resultado: **${result}**`
-        )
+        `❌ Usa: **${PREFIX}rep @usuario**`
       );
     }
 
-    // ========================================================
-    // 🔮 8BALL
-    // ========================================================
+    if (target.id === message.author.id) {
+      return message.reply(
+        "❌ No puedes darte reputación a ti mismo."
+      );
+    }
 
-    if (command === "8ball") {
-      const answers = [
-        "✨ Sí.",
-        "🌌 Probablemente.",
-        "🤔 No estoy seguro.",
-        "❌ No.",
-        "💫 Puede ser.",
-        "🔮 Las estrellas dicen que sí."
+    const targetData = getUser(target.id);
+
+    targetData.reputation++;
+
+    saveData();
+
+    return message.reply(
+      `⭐ ${message.author} le dio reputación a ${target}.`
+    );
+  }
+
+  // ==========================================================
+  // 📊 RANK
+  // ==========================================================
+
+  if (command === "rank" || command === "level") {
+    return message.reply({
+      embeds: [
+        new EmbedBuilder()
+          .setColor(COLORS.galaxy)
+          .setTitle("📊 Tu progreso")
+          .setDescription(
+            `⭐ **Nivel:** ${user.level}\n` +
+            `✨ **XP:** ${user.xp}\n\n` +
+            `Sigue participando para subir de nivel.`
+          )
+      ]
+    });
+  }
+
+  // ==========================================================
+  // 🎲 ROLL
+  // ==========================================================
+
+  if (command === "roll") {
+    const number =
+      Math.floor(Math.random() * 6) + 1;
+
+    return message.reply(
+      `🎲 Has lanzado un dado y salió **${number}**.`
+    );
+  }
+
+  // ==========================================================
+  // 🪙 COINFLIP
+  // ==========================================================
+
+  if (command === "coinflip" || command === "coin") {
+    const result =
+      Math.random() < 0.5
+        ? "🪙 Cara"
+        : "🪙 Cruz";
+
+    return message.reply(
+      `✨ La moneda cayó en **${result}**.`
+    );
+  }
+
+  // ==========================================================
+  // 🔮 8BALL
+  // ==========================================================
+
+  if (command === "8ball") {
+    const responses = [
+      "✨ Sí.",
+      "🌌 Probablemente.",
+      "🔮 Las estrellas dicen que sí.",
+      "☄️ No parece probable.",
+      "🌑 Mejor pregunta después.",
+      "⭐ Definitivamente.",
+      "🪐 Puede ser."
+    ];
+
+    const response =
+      responses[
+        Math.floor(Math.random() * responses.length)
       ];
 
+    return message.reply(
+      `🔮 **Nexora 8Ball**\n\n${response}`
+    );
+  }
+
+  // ==========================================================
+  // 🧹 CLEAR
+  // ==========================================================
+
+  if (command === "clear" || command === "purge") {
+    if (
+      !message.member.permissions.has(
+        PermissionsBitField.Flags.ManageMessages
+      )
+    ) {
       return message.reply(
-        createEmbed(
-          "🔮 8Ball",
-          answers[
-            Math.floor(
-              Math.random() *
-                answers.length
-            )
-          ]
-        )
+        "❌ Necesitas el permiso **Gestionar mensajes**."
       );
     }
 
-    // ========================================================
-    // 🎯 CHOOSE
-    // ========================================================
+    const amount = parseInt(args[0]);
 
-    if (command === "choose") {
-      if (args.length < 2) {
-        return message.reply(
-          `❌ Usa: \`${PREFIX}choose opción1 opción2 opción3\``
-        );
-      }
-
-      const choice =
-        args[
-          Math.floor(
-            Math.random() *
-              args.length
-          )
-        ];
-
+    if (!amount || amount < 1 || amount > 100) {
       return message.reply(
-        createEmbed(
-          "🎯 Elección",
-          `Elegí: **${choice}**`
-        )
+        `❌ Usa una cantidad entre **1 y 100**.\nEjemplo: **${PREFIX}clear 10**`
       );
     }
 
-    // ========================================================
-    // ⭐ RANK
-    // ========================================================
+    try {
+      await message.channel.bulkDelete(amount, true);
 
-    if (command === "rank") {
-      return message.reply(
-        createEmbed(
-          "⭐ Tu rango",
-          `🏆 Nivel: **${userData.level}**\n` +
-            `✨ XP: **${userData.xp}**`
-        )
+      const msg = await message.channel.send(
+        `🧹 Se eliminaron **${amount} mensajes**.`
       );
-    }
-
-    // ========================================================
-    // 🏆 LEADERBOARD
-    // ========================================================
-
-    if (command === "leaderboard") {
-      const ranking =
-        Object.entries(data.users)
-          .sort(
-            (a, b) =>
-              b[1].xp - a[1].xp
-          )
-          .slice(0, 10);
-
-      if (!ranking.length) {
-        return message.reply(
-          "📊 Todavía no hay datos suficientes."
-        );
-      }
-
-      const text =
-        ranking
-          .map(
-            ([id, user], index) =>
-              `**${index + 1}.** <@${id}> — ⭐ ${user.xp} XP`
-          )
-          .join("\n");
-
-      return message.reply(
-        createEmbed(
-          "🏆 Leaderboard",
-          text
-        )
-      );
-    }
-
-    // ========================================================
-    // 🦶 KICK
-    // ========================================================
-
-    if (command === "kick") {
-      if (
-        !message.member.permissions.has(
-          PermissionsBitField.Flags
-            .KickMembers
-        )
-      ) {
-        return message.reply(
-          "❌ No tienes permiso para expulsar miembros."
-        );
-      }
-
-      const member =
-        message.mentions.members.first();
-
-      if (!member) {
-        return message.reply(
-          "❌ Menciona al miembro que quieres expulsar."
-        );
-      }
-
-      if (!member.kickable) {
-        return message.reply(
-          "❌ No puedo expulsar a ese miembro."
-        );
-      }
-
-      await member.kick(
-        `Expulsado por ${message.author.tag}`
-      );
-
-      return message.reply(
-        createEmbed(
-          "👢 Miembro expulsado",
-          `${member.user.tag} fue expulsado.`,
-          COLORS.success
-        )
-      );
-    }
-
-    // ========================================================
-    // 🔨 BAN
-    // ========================================================
-
-    if (command === "ban") {
-      if (
-        !message.member.permissions.has(
-          PermissionsBitField.Flags
-            .BanMembers
-        )
-      ) {
-        return message.reply(
-          "❌ No tienes permiso para banear miembros."
-        );
-      }
-
-      const member =
-        message.mentions.members.first();
-
-      if (!member) {
-        return message.reply(
-          "❌ Menciona al miembro que quieres banear."
-        );
-      }
-
-      if (!member.bannable) {
-        return message.reply(
-          "❌ No puedo banear a ese miembro."
-        );
-      }
-
-      await member.ban({
-        reason:
-          `Baneado por ${message.author.tag}`
-      });
-
-      return message.reply(
-        createEmbed(
-          "🔨 Miembro baneado",
-          `${member.user.tag} fue baneado.`,
-          COLORS.danger
-        )
-      );
-    }
-
-    // ========================================================
-    // ⏰ TIMEOUT
-    // ========================================================
-
-    if (command === "timeout") {
-      if (
-        !message.member.permissions.has(
-          PermissionsBitField.Flags
-            .ModerateMembers
-        )
-      ) {
-        return message.reply(
-          "❌ No tienes permiso para aplicar timeout."
-        );
-      }
-
-      const member =
-        message.mentions.members.first();
-
-      if (!member) {
-        return message.reply(
-          "❌ Menciona al miembro."
-        );
-      }
-
-      const minutes =
-        parseInt(args[1]) || 10;
-
-      if (!member.moderatable) {
-        return message.reply(
-          "❌ No puedo aplicar timeout a ese miembro."
-        );
-      }
-
-      await member.timeout(
-        minutes * 60 * 1000,
-        `Timeout por ${message.author.tag}`
-      );
-
-      return message.reply(
-        createEmbed(
-          "⏰ Timeout",
-          `${member.user.tag} recibió un timeout de **${minutes} minutos**.`,
-          COLORS.warning
-        )
-      );
-    }
-
-    // ========================================================
-    // 🧹 CLEAR
-    // ========================================================
-
-    if (command === "clear") {
-      if (
-        !message.member.permissions.has(
-          PermissionsBitField.Flags
-            .ManageMessages
-        )
-      ) {
-        return message.reply(
-          "❌ No tienes permiso para borrar mensajes."
-        );
-      }
-
-      const amount =
-        Math.min(
-          parseInt(args[0]) || 10,
-          100
-        );
-
-      await message.channel.bulkDelete(
-        amount,
-        true
-      );
-
-      const msg =
-        await message.channel.send(
-          `🧹 Se eliminaron **${amount}** mensajes.`
-        );
 
       setTimeout(() => {
         msg.delete().catch(() => {});
       }, 3000);
 
-      return;
-    }
-
-    // ========================================================
-    // 🐌 SLOWMODE
-    // ========================================================
-
-    if (command === "slowmode") {
-      if (
-        !message.member.permissions.has(
-          PermissionsBitField.Flags
-            .ManageChannels
-        )
-      ) {
-        return message.reply(
-          "❌ No tienes permiso para configurar el canal."
-        );
-      }
-
-      const seconds =
-        Math.min(
-          parseInt(args[0]) || 0,
-          21600
-        );
-
-      await message.channel
-        .setRateLimitPerUser(
-          seconds
-        );
-
-      return message.reply(
-        createEmbed(
-          "🐌 Slowmode",
-          `Slowmode establecido en **${seconds} segundos**.`,
-          COLORS.success
-        )
-      );
-    }
-
-    // ========================================================
-    // 🔒 LOCK
-    // ========================================================
-
-    if (command === "lock") {
-      if (
-        !message.member.permissions.has(
-          PermissionsBitField.Flags
-            .ManageChannels
-        )
-      ) {
-        return message.reply(
-          "❌ No tienes permiso para bloquear canales."
-        );
-      }
-
-      await message.channel
-        .permissionOverwrites.edit(
-          message.guild.roles.everyone,
-          {
-            SendMessages: false
-          }
-        );
-
-      return message.reply(
-        createEmbed(
-          "🔒 Canal bloqueado",
-          "Este canal ha sido bloqueado.",
-          COLORS.warning
-        )
-      );
-    }
-
-    // ========================================================
-    // 🔓 UNLOCK
-    // ========================================================
-
-    if (command === "unlock") {
-      if (
-        !message.member.permissions.has(
-          PermissionsBitField.Flags
-            .ManageChannels
-        )
-      ) {
-        return message.reply(
-          "❌ No tienes permiso para desbloquear canales."
-        );
-      }
-
-      await message.channel
-        .permissionOverwrites.edit(
-          message.guild.roles.everyone,
-          {
-            SendMessages: null
-          }
-        );
-
-      return message.reply(
-        createEmbed(
-          "🔓 Canal desbloqueado",
-          "Este canal ha sido desbloqueado.",
-          COLORS.success
-        )
-      );
-    }
-
-    // ========================================================
-    // ⚠️ WARN
-    // ========================================================
-
-    if (command === "warn") {
-      if (
-        !message.member.permissions.has(
-          PermissionsBitField.Flags
-            .ModerateMembers
-        )
-      ) {
-        return message.reply(
-          "❌ No tienes permiso para advertir miembros."
-        );
-      }
-
-      const member =
-        message.mentions.members.first();
-
-      if (!member) {
-        return message.reply(
-          "❌ Menciona al miembro."
-        );
-      }
-
-      const reason =
-        args.slice(1).join(" ") ||
-        "Sin razón especificada";
-
-      const targetData =
-        getUserData(member.id);
-
-      targetData.warnings.push({
-        reason,
-        moderator:
-          message.author.id,
-        date: Date.now()
-      });
-
-      saveData();
-
-      return message.reply(
-        createEmbed(
-          "⚠️ Advertencia",
-          `${member.user.tag} recibió una advertencia.\n\n` +
-            `**Razón:** ${reason}`,
-          COLORS.warning
-        )
-      );
-    }
-
-    // ========================================================
-    // 📋 WARNINGS
-    // ========================================================
-
-    if (command === "warnings") {
-      const member =
-        message.mentions.members.first() ||
-        message.member;
-
-      const targetData =
-        getUserData(member.id);
-
-      if (
-        !targetData.warnings.length
-      ) {
-        return message.reply(
-          `📋 ${member.user.tag} no tiene advertencias.`
-        );
-      }
-
-      const text =
-        targetData.warnings
-          .map(
-            (warn, index) =>
-              `**${index + 1}.** ${warn.reason}`
-          )
-          .join("\n");
-
-      return message.reply(
-        createEmbed(
-          `📋 Advertencias de ${member.user.tag}`,
-          text,
-          COLORS.warning
-        )
-      );
-    }
-
-    // ========================================================
-    // 🔐 PERMISSIONS
-    // ========================================================
-
-    if (command === "permissions") {
-      const permissions =
-        message.member.permissions.toArray();
-
-      return message.reply(
-        createEmbed(
-          "🔐 Tus permisos",
-          permissions
-            .map(
-              permission =>
-                `• ${permission}`
-            )
-            .join("\n")
-        )
-      );
-    }
-
-    // ========================================================
-    // ⚙️ CONFIG
-    // ========================================================
-
-    if (command === "config") {
-      if (
-        !message.member.permissions.has(
-          PermissionsBitField.Flags
-            .Administrator
-        )
-      ) {
-        return message.reply(
-          "❌ Solo los administradores pueden usar la configuración."
-        );
-      }
-
-      const guildData =
-        getGuildData(
-          message.guild.id
-        );
-
-      return message.reply(
-        createEmbed(
-          "⚙️ Configuración de Nexora",
-          `👋 Bienvenida: ${
-            guildData.welcomeChannel
-              ? `<#${guildData.welcomeChannel}>`
-              : "No configurada"
-          }\n` +
-            `📋 Logs: ${
-              guildData.logsChannel
-                ? `<#${guildData.logsChannel}>`
-                : "No configurados"
-            }\n` +
-            `🎭 AutoRol: ${
-              guildData.autoRole
-                ? `<@&${guildData.autoRole}>`
-                : "No configurado"
-            }`
-        )
-      );
-    }
-
-    // ========================================================
-    // 👋 SETWELCOME
-    // ========================================================
-
-    if (command === "setwelcome") {
-      if (
-        !message.member.permissions.has(
-          PermissionsBitField.Flags
-            .Administrator
-        )
-      ) {
-        return message.reply(
-          "❌ Solo los administradores pueden usar esto."
-        );
-      }
-
-      const channel =
-        message.mentions.channels.first();
-
-      if (!channel) {
-        return message.reply(
-          "❌ Menciona el canal de bienvenida."
-        );
-      }
-
-      const guildData =
-        getGuildData(
-          message.guild.id
-        );
-
-      guildData.welcomeChannel =
-        channel.id;
-
-      saveData();
-
-      return message.reply(
-        createEmbed(
-          "👋 Bienvenida configurada",
-          `Canal: ${channel}`,
-          COLORS.success
-        )
-      );
-    }
-
-    // ========================================================
-    // 📋 SETLOGS
-    // ========================================================
-
-    if (command === "setlogs") {
-      if (
-        !message.member.permissions.has(
-          PermissionsBitField.Flags
-            .Administrator
-        )
-      ) {
-        return message.reply(
-          "❌ Solo los administradores pueden usar esto."
-        );
-      }
-
-      const channel =
-        message.mentions.channels.first();
-
-      if (!channel) {
-        return message.reply(
-          "❌ Menciona el canal de logs."
-        );
-      }
-
-      const guildData =
-        getGuildData(
-          message.guild.id
-        );
-
-      guildData.logsChannel =
-        channel.id;
-
-      saveData();
-
-      return message.reply(
-        createEmbed(
-          "📋 Logs configurados",
-          `Canal: ${channel}`,
-          COLORS.success
-        )
-      );
-    }
-
-    // ========================================================
-    // 🎭 SETAUTOROLE
-    // ========================================================
-
-    if (command === "setautorole") {
-      if (
-        !message.member.permissions.has(
-          PermissionsBitField.Flags
-            .Administrator
-        )
-      ) {
-        return message.reply(
-          "❌ Solo los administradores pueden usar esto."
-        );
-      }
-
-      const role =
-        message.mentions.roles.first();
-
-      if (!role) {
-        return message.reply(
-          "❌ Menciona el rol automático."
-        );
-      }
-
-      const guildData =
-        getGuildData(
-          message.guild.id
-        );
-
-      guildData.autoRole =
-        role.id;
-
-      saveData();
-
-      return message.reply(
-        createEmbed(
-          "🎭 AutoRol configurado",
-          `Rol: ${role}`,
-          COLORS.success
-        )
-      );
-    }
-
-    // ========================================================
-    // 🎫 TICKET
-    // ========================================================
-
-    if (command === "ticket") {
-      const safeName =
-        `ticket-${message.author.username}`
-          .toLowerCase()
-          .replace(
-            /[^a-z0-9-]/g,
-            ""
-          );
-
-      const channel =
-        await message.guild.channels.create(
-          {
-            name: safeName,
-            type: 0,
-            permissionOverwrites: [
-              {
-                id:
-                  message.guild.roles
-                    .everyone.id,
-
-                deny: [
-                  PermissionsBitField
-                    .Flags
-                    .ViewChannel
-                ]
-              },
-              {
-                id:
-                  message.author.id,
-
-                allow: [
-                  PermissionsBitField
-                    .Flags
-                    .ViewChannel,
-
-                  PermissionsBitField
-                    .Flags
-                    .SendMessages
-                ]
-              }
-            ]
-          }
-        );
-
-      return message.reply(
-        createEmbed(
-          "🎫 Ticket creado",
-          `Tu ticket está aquí: ${channel}`,
-          COLORS.success
-        )
-      );
-    }
-
-    // ========================================================
-    // 💬 SAY
-    // ========================================================
-
-    if (command === "say") {
-      if (
-        !message.member.permissions.has(
-          PermissionsBitField.Flags
-            .ManageMessages
-        )
-      ) {
-        return message.reply(
-          "❌ No tienes permiso para usar este comando."
-        );
-      }
-
-      const text =
-        args.join(" ");
-
-      if (!text) {
-        return message.reply(
-          "❌ Escribe el mensaje."
-        );
-      }
-
-      await message.delete()
-        .catch(() => {});
+    } catch (error) {
+      console.error(error);
 
       return message.channel.send(
-        text
+        "❌ No pude eliminar los mensajes."
       );
     }
 
-    // ========================================================
-    // ⭐ RATE
-    // ========================================================
+    return;
+  }
 
-    if (command === "rate") {
-      const number =
-        Math.floor(
-          Math.random() * 10
-        ) + 1;
+  // ==========================================================
+  // 🔨 KICK
+  // ==========================================================
 
+  if (command === "kick") {
+    if (
+      !message.member.permissions.has(
+        PermissionsBitField.Flags.KickMembers
+      )
+    ) {
       return message.reply(
-        createEmbed(
-          "⭐ Rating",
-          `Mi puntuación es: **${number}/10**`
-        )
+        "❌ Necesitas el permiso **Expulsar miembros**."
       );
     }
 
-    // ========================================================
-    // 🎲 RANDOM
-    // ========================================================
+    const target =
+      message.mentions.members.first();
 
-    if (command === "random") {
-      const min =
-        parseInt(args[0]) || 1;
-
-      const max =
-        parseInt(args[1]) || 100;
-
-      const result =
-        Math.floor(
-          Math.random() *
-            (max - min + 1)
-        ) + min;
-
+    if (!target) {
       return message.reply(
-        createEmbed(
-          "🎲 Número aleatorio",
-          `Resultado: **${result}**`
-        )
+        `❌ Usa: **${PREFIX}kick @usuario**`
       );
     }
 
-    // ========================================================
-    // ❓ COMANDO DESCONOCIDO
-    // ========================================================
+    if (!target.kickable) {
+      return message.reply(
+        "❌ No puedo expulsar a ese usuario."
+      );
+    }
+
+    await target.kick();
 
     return message.reply(
-      `❌ Comando desconocido. Usa \`${PREFIX}help\` para ver los comandos.`
+      `🔨 ${target.user.tag} ha sido expulsado.`
     );
   }
-);
 
-// ============================================================
-// 🆕 MIEMBRO NUEVO
-// ============================================================
+  // ==========================================================
+  // 🔨 BAN
+  // ==========================================================
 
-client.on(
-  Events.GuildMemberAdd,
-  async member => {
-    const guildData =
-      getGuildData(
-        member.guild.id
-      );
-
-    if (guildData.welcomeChannel) {
-      const channel =
-        member.guild.channels.cache.get(
-          guildData.welcomeChannel
-        );
-
-      if (channel) {
-        channel.send(
-          `🌌 ¡Bienvenido/a ${member} a **${member.guild.name}**!`
-        );
-      }
-    }
-
-    if (guildData.autoRole) {
-      const role =
-        member.guild.roles.cache.get(
-          guildData.autoRole
-        );
-
-      if (role) {
-        await member.roles
-          .add(role)
-          .catch(() => {});
-      }
-    }
-  }
-);
-
-// ============================================================
-// 🟢 DIAGNÓSTICO DEL GATEWAY
-// ============================================================
-
-// IMPORTANTE:
-// NO usamos "client.on('debug')" porque algunos mensajes
-// de debug pueden contener información sensible.
-
-// ------------------------------------------------------------
-// 🟢 SHARD READY
-// ------------------------------------------------------------
-
-client.on(
-  "shardReady",
-  id => {
-    console.log(
-      `🟢 Gateway de Discord conectado. Shard: ${id}`
-    );
-  }
-);
-
-// ------------------------------------------------------------
-// 🔄 RECONEXIÓN
-// ------------------------------------------------------------
-
-client.on(
-  "shardReconnecting",
-  id => {
-    console.log(
-      `🔄 Discord está intentando reconectar. Shard: ${id}`
-    );
-  }
-);
-
-// ------------------------------------------------------------
-// 🔴 DESCONEXIÓN
-// ------------------------------------------------------------
-
-client.on(
-  "shardDisconnect",
-  (event, id) => {
-    console.error(
-      `🔴 Gateway desconectado. Shard: ${id}`
-    );
-
-    console.error(
-      `🔢 Código de Discord: ${event.code}`
-    );
-
-    if (event.reason) {
-      console.error(
-        `📝 Razón: ${event.reason}`
+  if (command === "ban") {
+    if (
+      !message.member.permissions.has(
+        PermissionsBitField.Flags.BanMembers
+      )
+    ) {
+      return message.reply(
+        "❌ Necesitas el permiso **Banear miembros**."
       );
     }
-  }
-);
 
-// ------------------------------------------------------------
-// ❌ ERROR DEL SHARD
-// ------------------------------------------------------------
+    const target =
+      message.mentions.members.first();
 
-client.on(
-  "shardError",
-  (error, id) => {
-    console.error(
-      `❌ Error del Gateway. Shard: ${id}`
-    );
-
-    console.error(
-      "Código:",
-      error.code || "Desconocido"
-    );
-
-    console.error(
-      "Mensaje:",
-      error.message || "Sin mensaje"
-    );
-  }
-);
-
-// ------------------------------------------------------------
-// ❌ ERROR DEL CLIENTE
-// ------------------------------------------------------------
-
-client.on(
-  "error",
-  error => {
-    console.error(
-      "❌ DISCORD ERROR"
-    );
-
-    console.error(
-      "Código:",
-      error.code || "Desconocido"
-    );
-
-    console.error(
-      "Mensaje:",
-      error.message || "Sin mensaje"
-    );
-  }
-);
-
-// ============================================================
-// 🌐 SERVIDOR HTTP PARA RENDER
-// ============================================================
-
-const PORT =
-  process.env.PORT || 10000;
-
-const server =
-  http.createServer(
-    (req, res) => {
-      res.writeHead(
-        200,
-        {
-          "Content-Type":
-            "text/plain; charset=utf-8"
-        }
-      );
-
-      res.end(
-        "🌌 Nexora online\n"
+    if (!target) {
+      return message.reply(
+        `❌ Usa: **${PREFIX}ban @usuario**`
       );
     }
+
+    if (!target.bannable) {
+      return message.reply(
+        "❌ No puedo banear a ese usuario."
+      );
+    }
+
+    await target.ban();
+
+    return message.reply(
+      `🔨 ${target.user.tag} ha sido baneado.`
+    );
+  }
+
+  // ==========================================================
+  // ⚙️ CONFIG
+  // ==========================================================
+
+  if (command === "config") {
+    return message.reply({
+      embeds: [
+        new EmbedBuilder()
+          .setColor(COLORS.dark)
+          .setTitle("⚙️ Configuración de Nexora")
+          .setDescription(
+            `🌌 **Servidor:** ${message.guild.name}\n` +
+            `⚙️ **Prefix:** ${PREFIX}\n` +
+            `👥 **Miembros:** ${message.guild.memberCount}`
+          )
+      ]
+    });
+  }
+
+  // ==========================================================
+  // ❓ COMANDO DESCONOCIDO
+  // ==========================================================
+
+  return message.reply(
+    `❌ No conozco ese comando.\nUsa **${PREFIX}help** para abrir el menú de Nexora.`
   );
+});
 
-server.listen(
-  PORT,
-  "0.0.0.0",
-  () => {
-    console.log(
-      `🌐 Servidor HTTP activo en el puerto ${PORT}`
-    );
+// ============================================================
+// 🖱️ INTERACCIONES
+// ============================================================
+
+client.on(Events.InteractionCreate, async (interaction) => {
+
+  // ==========================================================
+  // 📋 SELECT MENU
+  // ==========================================================
+
+  if (
+    interaction.isStringSelectMenu() &&
+    interaction.customId === "nexora_main_menu"
+  ) {
+    const category = interaction.values[0];
+
+    return interaction.update({
+      embeds: [categoryEmbed(category)],
+      components: [backButton()]
+    });
   }
-);
+
+  // ==========================================================
+  // 🔙 VOLVER
+  // ==========================================================
+
+  if (
+    interaction.isButton() &&
+    interaction.customId === "nexora_back"
+  ) {
+    return interaction.update({
+      embeds: [mainEmbed(interaction.user)],
+      components: [mainRow()]
+    });
+  }
+});
 
 // ============================================================
-// 🔐 CONEXIÓN CON DISCORD
+// ❌ ERRORES
 // ============================================================
 
-console.log(
-  "🔄 Intentando conectar Nexora a Discord..."
-);
+process.on("unhandledRejection", (error) => {
+  console.error("❌ Unhandled Rejection:", error);
+});
 
-// ------------------------------------------------------------
-// COMPROBAR TOKEN
-// ------------------------------------------------------------
+process.on("uncaughtException", (error) => {
+  console.error("❌ Uncaught Exception:", error);
+});
 
-if (!process.env.DISCORD_TOKEN) {
+// ============================================================
+// 🔐 LOGIN
+// ============================================================
+
+const TOKEN = process.env.DISCORD_TOKEN;
+
+if (!TOKEN) {
   console.error(
-    "❌ DISCORD_TOKEN NO ESTÁ CONFIGURADO EN RENDER."
+    "❌ No se encontró la variable DISCORD_TOKEN."
   );
-
   process.exit(1);
 }
 
-// ------------------------------------------------------------
-// LOGIN
-// ------------------------------------------------------------
-
-client
-  .login(process.env.DISCORD_TOKEN)
-
-  .then(() => {
-    console.log(
-      "🔐 Solicitud de conexión enviada correctamente."
-    );
-  })
-
-  .catch(error => {
-    console.error(
-      "❌ ERROR AL CONECTAR NEXORA"
-    );
-
-    console.error(
-      "Código:",
-      error.code || "Desconocido"
-    );
-
-    console.error(
-      "Mensaje:",
-      error.message ||
-        "Sin mensaje"
-    );
-  });
-
-// ============================================================
-// 🚨 ERRORES GLOBALES
-// ============================================================
-
-process.on(
-  "unhandledRejection",
-  error => {
-    console.error(
-      "🚨 UNHANDLED REJECTION:"
-    );
-
-    console.error(error);
-  }
-);
-
-process.on(
-  "uncaughtException",
-  error => {
-    console.error(
-      "🚨 UNCAUGHT EXCEPTION:"
-    );
-
-    console.error(error);
-  }
-);
+client.login(TOKEN);
