@@ -2,6 +2,7 @@
 // 🌌 NEXORA — DISCORD BOT
 // Prefix: n.
 // discord.js v14
+// Compatible con Render Web Service
 // ============================================================
 
 const {
@@ -19,13 +20,36 @@ const {
 
 const fs = require("fs");
 const path = require("path");
+const http = require("http");
 
 // ============================================================
 // ⚙️ CONFIGURACIÓN
 // ============================================================
 
 const PREFIX = "n.";
+const PORT = process.env.PORT || 3000;
+
 const DATA_FILE = path.join(__dirname, "nexora-data.json");
+
+// ============================================================
+// 🌐 SERVIDOR HTTP PARA RENDER
+// ============================================================
+
+const server = http.createServer((req, res) => {
+  res.writeHead(200, {
+    "Content-Type": "text/plain; charset=utf-8"
+  });
+
+  res.end("🌌 Nexora está funcionando correctamente.");
+});
+
+server.listen(PORT, "0.0.0.0", () => {
+  console.log(`🌐 Servidor HTTP activo en el puerto ${PORT}`);
+});
+
+// ============================================================
+// 🤖 CLIENTE DISCORD
+// ============================================================
 
 const client = new Client({
   intents: [
@@ -49,7 +73,9 @@ let data = {
 function loadData() {
   try {
     if (fs.existsSync(DATA_FILE)) {
-      const saved = JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
+      const saved = JSON.parse(
+        fs.readFileSync(DATA_FILE, "utf8")
+      );
 
       data = {
         users: saved.users || {},
@@ -57,7 +83,7 @@ function loadData() {
       };
     }
   } catch (error) {
-    console.error("❌ Error cargando la base de datos:", error);
+    console.error("❌ Error cargando nexora-data.json:", error);
   }
 }
 
@@ -69,14 +95,14 @@ function saveData() {
       "utf8"
     );
   } catch (error) {
-    console.error("❌ Error guardando la base de datos:", error);
+    console.error("❌ Error guardando datos:", error);
   }
 }
 
 loadData();
 
 // ============================================================
-// 👤 DATOS DEL USUARIO
+// 👤 USUARIOS
 // ============================================================
 
 function getUser(userId) {
@@ -87,7 +113,6 @@ function getUser(userId) {
       level: 1,
       xp: 0,
       reputation: 0,
-      daily: 0,
       lastDaily: 0,
       lastWork: 0,
       inventory: []
@@ -100,7 +125,7 @@ function getUser(userId) {
 }
 
 // ============================================================
-// 🏠 DATOS DEL SERVIDOR
+// 🏠 SERVIDORES
 // ============================================================
 
 function getGuild(guildId) {
@@ -116,7 +141,7 @@ function getGuild(guildId) {
 }
 
 // ============================================================
-// 🌌 COLORES
+// 🎨 COLORES
 // ============================================================
 
 const COLORS = {
@@ -134,30 +159,35 @@ const COLORS = {
 // ============================================================
 
 function mainEmbed(user) {
+  const userData = getUser(user.id);
+
   return new EmbedBuilder()
     .setColor(COLORS.galaxy)
     .setTitle("🌌 NEXORA")
     .setDescription(
-      `> ✨ Bienvenido al universo de **Nexora**.\n` +
-      `> Explora todas las funciones utilizando el menú de abajo.\n\n` +
+      "✨ **Bienvenido al universo de Nexora.**\n\n" +
+      "Explora las diferentes categorías utilizando el menú de abajo.\n\n" +
 
-      `💰 **Economía**\n` +
-      `Compra, trabaja, ahorra y administra tu dinero.\n\n` +
+      "💰 **Economía**\n" +
+      "Dinero, banco, trabajos y tienda.\n\n" +
 
-      `👥 **Social**\n` +
-      `Interactúa con otros usuarios y desarrolla tu perfil.\n\n` +
+      "👥 **Social**\n" +
+      "Perfiles, reputación y niveles.\n\n" +
 
-      `🎮 **Diversión**\n` +
-      `Juega y descubre diferentes funciones.\n\n` +
+      "🎮 **Diversión**\n" +
+      "Juegos y entretenimiento.\n\n" +
 
-      `🎁 **Recompensas**\n` +
-      `Obtén premios y recompensas diarias.\n\n` +
+      "🎁 **Recompensas**\n" +
+      "Premios y recompensas diarias.\n\n" +
 
-      `🛡️ **Moderación**\n` +
-      `Herramientas para administrar el servidor.\n\n` +
+      "🛡️ **Moderación**\n" +
+      "Herramientas para administrar el servidor.\n\n" +
 
-      `⚙️ **Configuración**\n` +
-      `Personaliza Nexora para tu servidor.`
+      "⚙️ **Configuración**\n" +
+      "Configuración de Nexora.\n\n" +
+
+      "ℹ️ **Información**\n" +
+      "Información y comandos."
     )
     .addFields(
       {
@@ -167,12 +197,12 @@ function mainEmbed(user) {
       },
       {
         name: "💰 Dinero",
-        value: `$${getUser(user.id).money.toLocaleString()}`,
+        value: `$${userData.money.toLocaleString()}`,
         inline: true
       },
       {
         name: "⭐ Nivel",
-        value: `${getUser(user.id).level}`,
+        value: `${userData.level}`,
         inline: true
       }
     )
@@ -193,43 +223,43 @@ function mainMenu() {
     .addOptions([
       {
         label: "Economía",
-        description: "Dinero, banco, trabajo, tienda...",
+        description: "Dinero, banco, trabajo y tienda",
         value: "economia",
         emoji: "💰"
       },
       {
         label: "Social",
-        description: "Perfil, reputación y usuarios...",
+        description: "Perfil, reputación y niveles",
         value: "social",
         emoji: "👥"
       },
       {
         label: "Diversión",
-        description: "Juegos y entretenimiento...",
+        description: "Juegos y entretenimiento",
         value: "diversion",
         emoji: "🎮"
       },
       {
         label: "Recompensas",
-        description: "Daily, premios y recompensas...",
+        description: "Premios y recompensas",
         value: "recompensas",
         emoji: "🎁"
       },
       {
         label: "Moderación",
-        description: "Herramientas para administradores...",
+        description: "Herramientas de moderación",
         value: "moderacion",
         emoji: "🛡️"
       },
       {
         label: "Configuración",
-        description: "Configuración de Nexora...",
+        description: "Configuración del bot",
         value: "configuracion",
         emoji: "⚙️"
       },
       {
         label: "Información",
-        description: "Información sobre Nexora...",
+        description: "Información de Nexora",
         value: "informacion",
         emoji: "ℹ️"
       }
@@ -237,105 +267,121 @@ function mainMenu() {
 }
 
 function mainRow() {
-  return new ActionRowBuilder().addComponents(mainMenu());
+  return new ActionRowBuilder().addComponents(
+    mainMenu()
+  );
 }
 
 // ============================================================
-// 📋 MENÚ DE CATEGORÍAS
+// 📂 CATEGORÍAS
 // ============================================================
 
 function categoryEmbed(category) {
+
   const embeds = {
 
     economia: new EmbedBuilder()
       .setColor(COLORS.green)
       .setTitle("💰 ECONOMÍA")
       .setDescription(
-        `Gestiona tu economía dentro de Nexora.\n\n` +
-        `💵 **n.balance** — Ver tu dinero\n` +
-        `🏦 **n.bank** — Ver tu banco\n` +
-        `💼 **n.work** — Trabajar\n` +
-        `🎁 **n.daily** — Recompensa diaria\n` +
-        `💸 **n.pay** — Pagar a otro usuario\n` +
-        `🏪 **n.shop** — Ver la tienda\n` +
-        `🎒 **n.inventory** — Ver inventario`
+        "Gestiona tu economía en Nexora.\n\n" +
+        "💵 **n.balance** — Ver tu dinero\n" +
+        "🏦 **n.bank** — Ver tu banco\n" +
+        "💼 **n.work** — Trabajar\n" +
+        "🎁 **n.daily** — Recompensa diaria\n" +
+        "💸 **n.pay @usuario cantidad** — Pagar\n" +
+        "🏪 **n.shop** — Tienda\n" +
+        "🎒 **n.inventory** — Inventario"
       )
-      .setFooter({ text: "🌌 Nexora • Economía" }),
+      .setFooter({
+        text: "🌌 Nexora • Economía"
+      }),
 
     social: new EmbedBuilder()
       .setColor(COLORS.purple)
       .setTitle("👥 SOCIAL")
       .setDescription(
-        `Conoce y personaliza tu perfil.\n\n` +
-        `👤 **n.profile** — Ver tu perfil\n` +
-        `📊 **n.rank** — Ver tu nivel\n` +
-        `⭐ **n.rep** — Dar reputación\n` +
-        `🔎 **n.user** — Ver información de usuario\n` +
-        `🏆 **n.leaderboard** — Clasificación`
+        "Funciones sociales de Nexora.\n\n" +
+        "👤 **n.profile** — Ver perfil\n" +
+        "📊 **n.rank** — Ver nivel\n" +
+        "⭐ **n.rep @usuario** — Dar reputación\n" +
+        "🔎 **n.user @usuario** — Ver usuario\n" +
+        "🏆 **n.leaderboard** — Clasificación"
       )
-      .setFooter({ text: "🌌 Nexora • Social" }),
+      .setFooter({
+        text: "🌌 Nexora • Social"
+      }),
 
     diversion: new EmbedBuilder()
       .setColor(COLORS.blue)
       .setTitle("🎮 DIVERSIÓN")
       .setDescription(
-        `Funciones para pasar el rato.\n\n` +
-        `🎲 **n.roll** — Tirar un dado\n` +
-        `🪙 **n.coinflip** — Lanzar una moneda\n` +
-        `🔢 **n.guess** — Adivina el número\n` +
-        `😂 **n.8ball** — Pregunta a la bola mágica`
+        "Funciones para divertirte.\n\n" +
+        "🎲 **n.roll** — Lanzar dado\n" +
+        "🪙 **n.coinflip** — Lanzar moneda\n" +
+        "🔮 **n.8ball** — Bola mágica\n" +
+        "🔢 **n.guess** — Adivinar"
       )
-      .setFooter({ text: "🌌 Nexora • Diversión" }),
+      .setFooter({
+        text: "🌌 Nexora • Diversión"
+      }),
 
     recompensas: new EmbedBuilder()
       .setColor(COLORS.gold)
       .setTitle("🎁 RECOMPENSAS")
       .setDescription(
-        `Obtén diferentes recompensas.\n\n` +
-        `🎁 **n.daily** — Recompensa diaria\n` +
-        `💼 **n.work** — Recompensa por trabajar\n` +
-        `⭐ **n.level** — Ver progreso de nivel\n` +
-        `🏆 **n.leaderboard** — Ranking de usuarios`
+        "Consigue recompensas dentro de Nexora.\n\n" +
+        "🎁 **n.daily** — Recompensa diaria\n" +
+        "💼 **n.work** — Trabajar\n" +
+        "⭐ **n.level** — Ver nivel\n" +
+        "🏆 **n.leaderboard** — Ranking"
       )
-      .setFooter({ text: "🌌 Nexora • Recompensas" }),
+      .setFooter({
+        text: "🌌 Nexora • Recompensas"
+      }),
 
     moderacion: new EmbedBuilder()
       .setColor(COLORS.red)
       .setTitle("🛡️ MODERACIÓN")
       .setDescription(
-        `Herramientas disponibles para moderadores.\n\n` +
-        `🔨 **n.kick @usuario** — Expulsar\n` +
-        `🔨 **n.ban @usuario** — Banear\n` +
-        `🔓 **n.unban ID** — Desbanear\n` +
-        `🧹 **n.clear cantidad** — Borrar mensajes\n` +
-        `🔇 **n.timeout @usuario** — Silenciar temporalmente`
+        "Herramientas para administradores.\n\n" +
+        "🔨 **n.kick @usuario** — Expulsar\n" +
+        "🔨 **n.ban @usuario** — Banear\n" +
+        "🔓 **n.unban ID** — Desbanear\n" +
+        "🧹 **n.clear cantidad** — Borrar mensajes\n" +
+        "🔇 **n.timeout @usuario** — Timeout"
       )
-      .setFooter({ text: "🌌 Nexora • Moderación" }),
+      .setFooter({
+        text: "🌌 Nexora • Moderación"
+      }),
 
     configuracion: new EmbedBuilder()
       .setColor(COLORS.dark)
       .setTitle("⚙️ CONFIGURACIÓN")
       .setDescription(
-        `Configura Nexora para tu servidor.\n\n` +
-        `⚙️ **n.config** — Ver configuración\n` +
-        `📌 **n.prefix** — Ver prefix actual\n\n` +
+        "Configuración de Nexora.\n\n" +
+        `⚙️ **n.config** — Configuración\n` +
+        `📌 **n.prefix** — Prefix actual\n\n` +
         `Prefix actual: **${PREFIX}**`
       )
-      .setFooter({ text: "🌌 Nexora • Configuración" }),
+      .setFooter({
+        text: "🌌 Nexora • Configuración"
+      }),
 
     informacion: new EmbedBuilder()
       .setColor(COLORS.galaxy)
       .setTitle("ℹ️ INFORMACIÓN")
       .setDescription(
-        `🌌 **Nexora**\n\n` +
-        `Un bot multifunción diseñado para convertir tu servidor ` +
-        `en un pequeño universo.\n\n` +
-        `🤖 **Bot:** Nexora\n` +
+        "🌌 **NEXORA**\n\n" +
+        "Un bot multifunción para servidores de Discord.\n\n" +
+        "🤖 **Nombre:** Nexora\n" +
         `⚙️ **Prefix:** ${PREFIX}\n` +
-        `📚 **Librería:** discord.js v14\n\n` +
-        `Usa **${PREFIX}help** para abrir este menú.`
+        "📚 **Discord.js:** v14\n\n" +
+        `Usa **${PREFIX}help** para abrir el menú.`
       )
-      .setFooter({ text: "🌌 Nexora" })
+      .setFooter({
+        text: "🌌 Nexora"
+      })
   };
 
   return embeds[category] || embeds.informacion;
@@ -356,18 +402,23 @@ function backButton() {
 }
 
 // ============================================================
-// 🟢 READY
+// 🟢 BOT CONECTADO
 // ============================================================
 
 client.once(Events.ClientReady, (bot) => {
+
+  console.log("");
   console.log("======================================");
   console.log("🌌 NEXORA");
   console.log("======================================");
-  console.log(`✅ Bot conectado como ${bot.user.tag}`);
+  console.log(`✅ Conectado como: ${bot.user.tag}`);
   console.log(`🆔 ID: ${bot.user.id}`);
   console.log(`🌐 Servidores: ${bot.guilds.cache.size}`);
   console.log(`⚙️ Prefix: ${PREFIX}`);
+  console.log(`🌐 Puerto HTTP: ${PORT}`);
   console.log("======================================");
+  console.log("🚀 NEXORA ESTÁ ONLINE");
+  console.log("");
 
   bot.user.setPresence({
     activities: [
@@ -385,10 +436,13 @@ client.once(Events.ClientReady, (bot) => {
 // ============================================================
 
 client.on(Events.MessageCreate, async (message) => {
+
   if (message.author.bot) return;
   if (!message.guild) return;
 
-  if (!message.content.toLowerCase().startsWith(PREFIX)) return;
+  if (!message.content.toLowerCase().startsWith(PREFIX)) {
+    return;
+  }
 
   const args = message.content
     .slice(PREFIX.length)
@@ -400,6 +454,7 @@ client.on(Events.MessageCreate, async (message) => {
   if (!command) return;
 
   const user = getUser(message.author.id);
+
   getGuild(message.guild.id);
 
   // ==========================================================
@@ -407,9 +462,14 @@ client.on(Events.MessageCreate, async (message) => {
   // ==========================================================
 
   if (command === "help" || command === "menu") {
+
     return message.reply({
-      embeds: [mainEmbed(message.author)],
-      components: [mainRow()]
+      embeds: [
+        mainEmbed(message.author)
+      ],
+      components: [
+        mainRow()
+      ]
     });
   }
 
@@ -418,17 +478,22 @@ client.on(Events.MessageCreate, async (message) => {
   // ==========================================================
 
   if (command === "balance" || command === "bal") {
+
     return message.reply({
       embeds: [
         new EmbedBuilder()
           .setColor(COLORS.green)
-          .setTitle("💰 Tu balance")
+          .setTitle("💰 TU BALANCE")
           .setDescription(
             `💵 **Efectivo:** $${user.money.toLocaleString()}\n` +
             `🏦 **Banco:** $${user.bank.toLocaleString()}\n\n` +
-            `💎 **Total:** $${(user.money + user.bank).toLocaleString()}`
+            `💎 **Total:** $${(
+              user.money + user.bank
+            ).toLocaleString()}`
           )
-          .setFooter({ text: "🌌 Nexora • Economía" })
+          .setFooter({
+            text: "🌌 Nexora • Economía"
+          })
       ]
     });
   }
@@ -438,13 +503,15 @@ client.on(Events.MessageCreate, async (message) => {
   // ==========================================================
 
   if (command === "bank") {
+
     return message.reply({
       embeds: [
         new EmbedBuilder()
           .setColor(COLORS.blue)
-          .setTitle("🏦 Banco")
+          .setTitle("🏦 BANCO")
           .setDescription(
-            `💰 Dinero en el banco: **$${user.bank.toLocaleString()}**`
+            `💰 Dinero en el banco:\n\n` +
+            `**$${user.bank.toLocaleString()}**`
           )
       ]
     });
@@ -455,20 +522,23 @@ client.on(Events.MessageCreate, async (message) => {
   // ==========================================================
 
   if (command === "work") {
+
     const now = Date.now();
     const cooldown = 60 * 1000;
 
     if (now - user.lastWork < cooldown) {
+
       const remaining = Math.ceil(
         (cooldown - (now - user.lastWork)) / 1000
       );
 
       return message.reply(
-        `⏳ Debes esperar **${remaining}s** antes de volver a trabajar.`
+        `⏳ Espera **${remaining}s** antes de volver a trabajar.`
       );
     }
 
-    const earnings = Math.floor(Math.random() * 451) + 150;
+    const earnings =
+      Math.floor(Math.random() * 451) + 150;
 
     user.money += earnings;
     user.lastWork = now;
@@ -479,9 +549,9 @@ client.on(Events.MessageCreate, async (message) => {
       embeds: [
         new EmbedBuilder()
           .setColor(COLORS.green)
-          .setTitle("💼 Trabajo completado")
+          .setTitle("💼 TRABAJO COMPLETADO")
           .setDescription(
-            `✨ Has trabajado y recibido **$${earnings.toLocaleString()}**.\n\n` +
+            `✨ Ganaste **$${earnings.toLocaleString()}**.\n\n` +
             `💰 Dinero actual: **$${user.money.toLocaleString()}**`
           )
       ]
@@ -493,16 +563,22 @@ client.on(Events.MessageCreate, async (message) => {
   // ==========================================================
 
   if (command === "daily") {
+
     const now = Date.now();
     const cooldown = 24 * 60 * 60 * 1000;
 
     if (now - user.lastDaily < cooldown) {
-      const remaining = cooldown - (now - user.lastDaily);
 
-      const hours = Math.floor(remaining / 3600000);
-      const minutes = Math.floor(
-        (remaining % 3600000) / 60000
-      );
+      const remaining =
+        cooldown - (now - user.lastDaily);
+
+      const hours =
+        Math.floor(remaining / 3600000);
+
+      const minutes =
+        Math.floor(
+          (remaining % 3600000) / 60000
+        );
 
       return message.reply(
         `⏳ Ya reclamaste tu recompensa.\n` +
@@ -521,9 +597,9 @@ client.on(Events.MessageCreate, async (message) => {
       embeds: [
         new EmbedBuilder()
           .setColor(COLORS.gold)
-          .setTitle("🎁 Recompensa diaria")
+          .setTitle("🎁 RECOMPENSA DIARIA")
           .setDescription(
-            `✨ Has recibido **$${reward.toLocaleString()}**.\n\n` +
+            `✨ Recibiste **$${reward.toLocaleString()}**.\n\n` +
             `💰 Dinero actual: **$${user.money.toLocaleString()}**`
           )
       ]
@@ -535,10 +611,12 @@ client.on(Events.MessageCreate, async (message) => {
   // ==========================================================
 
   if (command === "pay") {
+
     const target =
       message.mentions.users.first();
 
-    const amount = parseInt(args[1]);
+    const amount =
+      parseInt(args[1]);
 
     if (!target) {
       return message.reply(
@@ -547,18 +625,25 @@ client.on(Events.MessageCreate, async (message) => {
     }
 
     if (target.bot) {
-      return message.reply("❌ No puedes pagarle a un bot.");
+      return message.reply(
+        "❌ No puedes pagarle a un bot."
+      );
     }
 
     if (!amount || amount <= 0) {
-      return message.reply("❌ Especifica una cantidad válida.");
+      return message.reply(
+        "❌ Especifica una cantidad válida."
+      );
     }
 
     if (user.money < amount) {
-      return message.reply("❌ No tienes suficiente dinero.");
+      return message.reply(
+        "❌ No tienes suficiente dinero."
+      );
     }
 
-    const targetData = getUser(target.id);
+    const targetData =
+      getUser(target.id);
 
     user.money -= amount;
     targetData.money += amount;
@@ -574,19 +659,30 @@ client.on(Events.MessageCreate, async (message) => {
   // 👤 PROFILE
   // ==========================================================
 
-  if (command === "profile" || command === "perfil") {
+  if (
+    command === "profile" ||
+    command === "perfil"
+  ) {
+
     const target =
       message.mentions.users.first() ||
       message.author;
 
-    const targetData = getUser(target.id);
+    const targetData =
+      getUser(target.id);
 
     return message.reply({
       embeds: [
         new EmbedBuilder()
           .setColor(COLORS.purple)
-          .setTitle(`👤 Perfil de ${target.username}`)
-          .setThumbnail(target.displayAvatarURL({ dynamic: true }))
+          .setTitle(
+            `👤 Perfil de ${target.username}`
+          )
+          .setThumbnail(
+            target.displayAvatarURL({
+              dynamic: true
+            })
+          )
           .addFields(
             {
               name: "⭐ Nivel",
@@ -600,7 +696,8 @@ client.on(Events.MessageCreate, async (message) => {
             },
             {
               name: "💰 Dinero",
-              value: `$${targetData.money.toLocaleString()}`,
+              value:
+                `$${targetData.money.toLocaleString()}`,
               inline: true
             },
             {
@@ -609,7 +706,9 @@ client.on(Events.MessageCreate, async (message) => {
               inline: true
             }
           )
-          .setFooter({ text: "🌌 Nexora • Social" })
+          .setFooter({
+            text: "🌌 Nexora • Social"
+          })
       ]
     });
   }
@@ -619,6 +718,7 @@ client.on(Events.MessageCreate, async (message) => {
   // ==========================================================
 
   if (command === "rep") {
+
     const target =
       message.mentions.users.first();
 
@@ -634,7 +734,8 @@ client.on(Events.MessageCreate, async (message) => {
       );
     }
 
-    const targetData = getUser(target.id);
+    const targetData =
+      getUser(target.id);
 
     targetData.reputation++;
 
@@ -649,16 +750,20 @@ client.on(Events.MessageCreate, async (message) => {
   // 📊 RANK
   // ==========================================================
 
-  if (command === "rank" || command === "level") {
+  if (
+    command === "rank" ||
+    command === "level"
+  ) {
+
     return message.reply({
       embeds: [
         new EmbedBuilder()
           .setColor(COLORS.galaxy)
-          .setTitle("📊 Tu progreso")
+          .setTitle("📊 TU PROGRESO")
           .setDescription(
             `⭐ **Nivel:** ${user.level}\n` +
             `✨ **XP:** ${user.xp}\n\n` +
-            `Sigue participando para subir de nivel.`
+            `🌌 Sigue participando para subir de nivel.`
           )
       ]
     });
@@ -669,11 +774,12 @@ client.on(Events.MessageCreate, async (message) => {
   // ==========================================================
 
   if (command === "roll") {
+
     const number =
       Math.floor(Math.random() * 6) + 1;
 
     return message.reply(
-      `🎲 Has lanzado un dado y salió **${number}**.`
+      `🎲 El dado cayó en **${number}**.`
     );
   }
 
@@ -681,14 +787,18 @@ client.on(Events.MessageCreate, async (message) => {
   // 🪙 COINFLIP
   // ==========================================================
 
-  if (command === "coinflip" || command === "coin") {
+  if (
+    command === "coinflip" ||
+    command === "coin"
+  ) {
+
     const result =
       Math.random() < 0.5
-        ? "🪙 Cara"
-        : "🪙 Cruz";
+        ? "Cara"
+        : "Cruz";
 
     return message.reply(
-      `✨ La moneda cayó en **${result}**.`
+      `🪙 La moneda cayó en **${result}**.`
     );
   }
 
@@ -697,6 +807,7 @@ client.on(Events.MessageCreate, async (message) => {
   // ==========================================================
 
   if (command === "8ball") {
+
     const responses = [
       "✨ Sí.",
       "🌌 Probablemente.",
@@ -709,7 +820,9 @@ client.on(Events.MessageCreate, async (message) => {
 
     const response =
       responses[
-        Math.floor(Math.random() * responses.length)
+        Math.floor(
+          Math.random() * responses.length
+        )
       ];
 
     return message.reply(
@@ -721,7 +834,11 @@ client.on(Events.MessageCreate, async (message) => {
   // 🧹 CLEAR
   // ==========================================================
 
-  if (command === "clear" || command === "purge") {
+  if (
+    command === "clear" ||
+    command === "purge"
+  ) {
+
     if (
       !message.member.permissions.has(
         PermissionsBitField.Flags.ManageMessages
@@ -732,27 +849,42 @@ client.on(Events.MessageCreate, async (message) => {
       );
     }
 
-    const amount = parseInt(args[0]);
+    const amount =
+      parseInt(args[0]);
 
-    if (!amount || amount < 1 || amount > 100) {
+    if (
+      !amount ||
+      amount < 1 ||
+      amount > 100
+    ) {
       return message.reply(
-        `❌ Usa una cantidad entre **1 y 100**.\nEjemplo: **${PREFIX}clear 10**`
+        `❌ Usa una cantidad entre **1 y 100**.\n` +
+        `Ejemplo: **${PREFIX}clear 10**`
       );
     }
 
     try {
-      await message.channel.bulkDelete(amount, true);
 
-      const msg = await message.channel.send(
-        `🧹 Se eliminaron **${amount} mensajes**.`
+      await message.channel.bulkDelete(
+        amount,
+        true
       );
+
+      const msg =
+        await message.channel.send(
+          `🧹 Se eliminaron **${amount} mensajes**.`
+        );
 
       setTimeout(() => {
         msg.delete().catch(() => {});
       }, 3000);
 
     } catch (error) {
-      console.error(error);
+
+      console.error(
+        "❌ Error en clear:",
+        error
+      );
 
       return message.channel.send(
         "❌ No pude eliminar los mensajes."
@@ -767,6 +899,7 @@ client.on(Events.MessageCreate, async (message) => {
   // ==========================================================
 
   if (command === "kick") {
+
     if (
       !message.member.permissions.has(
         PermissionsBitField.Flags.KickMembers
@@ -795,7 +928,7 @@ client.on(Events.MessageCreate, async (message) => {
     await target.kick();
 
     return message.reply(
-      `🔨 ${target.user.tag} ha sido expulsado.`
+      `🔨 **${target.user.tag}** ha sido expulsado.`
     );
   }
 
@@ -804,6 +937,7 @@ client.on(Events.MessageCreate, async (message) => {
   // ==========================================================
 
   if (command === "ban") {
+
     if (
       !message.member.permissions.has(
         PermissionsBitField.Flags.BanMembers
@@ -832,7 +966,7 @@ client.on(Events.MessageCreate, async (message) => {
     await target.ban();
 
     return message.reply(
-      `🔨 ${target.user.tag} ha sido baneado.`
+      `🔨 **${target.user.tag}** ha sido baneado.`
     );
   }
 
@@ -841,11 +975,12 @@ client.on(Events.MessageCreate, async (message) => {
   // ==========================================================
 
   if (command === "config") {
+
     return message.reply({
       embeds: [
         new EmbedBuilder()
           .setColor(COLORS.dark)
-          .setTitle("⚙️ Configuración de Nexora")
+          .setTitle("⚙️ CONFIGURACIÓN")
           .setDescription(
             `🌌 **Servidor:** ${message.guild.name}\n` +
             `⚙️ **Prefix:** ${PREFIX}\n` +
@@ -856,11 +991,23 @@ client.on(Events.MessageCreate, async (message) => {
   }
 
   // ==========================================================
-  // ❓ COMANDO DESCONOCIDO
+  // 📌 PREFIX
+  // ==========================================================
+
+  if (command === "prefix") {
+
+    return message.reply(
+      `📌 El prefix de **Nexora** es **${PREFIX}**`
+    );
+  }
+
+  // ==========================================================
+  // ❓ DESCONOCIDO
   // ==========================================================
 
   return message.reply(
-    `❌ No conozco ese comando.\nUsa **${PREFIX}help** para abrir el menú de Nexora.`
+    `❌ No conozco ese comando.\n` +
+    `Usa **${PREFIX}help** para abrir el menú de Nexora.`
   );
 });
 
@@ -868,62 +1015,100 @@ client.on(Events.MessageCreate, async (message) => {
 // 🖱️ INTERACCIONES
 // ============================================================
 
-client.on(Events.InteractionCreate, async (interaction) => {
+client.on(
+  Events.InteractionCreate,
+  async (interaction) => {
 
-  // ==========================================================
-  // 📋 SELECT MENU
-  // ==========================================================
+    // ========================================================
+    // 📋 SELECT MENU
+    // ========================================================
 
-  if (
-    interaction.isStringSelectMenu() &&
-    interaction.customId === "nexora_main_menu"
-  ) {
-    const category = interaction.values[0];
+    if (
+      interaction.isStringSelectMenu() &&
+      interaction.customId === "nexora_main_menu"
+    ) {
 
-    return interaction.update({
-      embeds: [categoryEmbed(category)],
-      components: [backButton()]
-    });
+      const category =
+        interaction.values[0];
+
+      return interaction.update({
+        embeds: [
+          categoryEmbed(category)
+        ],
+        components: [
+          backButton()
+        ]
+      });
+    }
+
+    // ========================================================
+    // 🔙 VOLVER
+    // ========================================================
+
+    if (
+      interaction.isButton() &&
+      interaction.customId === "nexora_back"
+    ) {
+
+      return interaction.update({
+        embeds: [
+          mainEmbed(interaction.user)
+        ],
+        components: [
+          mainRow()
+        ]
+      });
+    }
   }
-
-  // ==========================================================
-  // 🔙 VOLVER
-  // ==========================================================
-
-  if (
-    interaction.isButton() &&
-    interaction.customId === "nexora_back"
-  ) {
-    return interaction.update({
-      embeds: [mainEmbed(interaction.user)],
-      components: [mainRow()]
-    });
-  }
-});
+);
 
 // ============================================================
-// ❌ ERRORES
+// ❌ MANEJO DE ERRORES
 // ============================================================
 
-process.on("unhandledRejection", (error) => {
-  console.error("❌ Unhandled Rejection:", error);
-});
+process.on(
+  "unhandledRejection",
+  (error) => {
+    console.error(
+      "❌ Unhandled Rejection:",
+      error
+    );
+  }
+);
 
-process.on("uncaughtException", (error) => {
-  console.error("❌ Uncaught Exception:", error);
-});
+process.on(
+  "uncaughtException",
+  (error) => {
+    console.error(
+      "❌ Uncaught Exception:",
+      error
+    );
+  }
+);
 
 // ============================================================
 // 🔐 LOGIN
 // ============================================================
 
-const TOKEN = process.env.DISCORD_TOKEN;
+const TOKEN =
+  process.env.DISCORD_TOKEN;
 
 if (!TOKEN) {
+
   console.error(
-    "❌ No se encontró la variable DISCORD_TOKEN."
+    "❌ ERROR: No existe DISCORD_TOKEN."
   );
+
   process.exit(1);
 }
 
-client.login(TOKEN);
+client.login(TOKEN)
+  .then(() => {
+    console.log("🔐 Login de Discord iniciado...");
+  })
+  .catch((error) => {
+    console.error(
+      "❌ Error iniciando sesión en Discord:",
+      error
+    );
+  });
